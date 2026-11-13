@@ -38,7 +38,7 @@ function pin(c, s, W, H) {
   shape(); c.lineWidth = Math.max(1.6, r * 0.14); c.strokeStyle = '#fff'; c.stroke();
   c.beginPath(); c.arc(x, y, Math.max(2.2, r * 0.2), 0, 7); c.fillStyle = '#fff'; c.fill(); c.lineWidth = 1.2; c.strokeStyle = '#000'; c.stroke();
   if (s.num != null) {
-    c.fillStyle = DARK_TEXT.has(s.color) ? '#111' : '#fff'; c.font = `700 ${Math.round(r * (String(s.num).length > 2 ? 0.8 : 1.05))}px "Segoe UI", sans-serif`;
+    c.fillStyle = DARK_TEXT.has(s.color) ? '#111' : '#fff'; c.font = `700 ${Math.round(r * (String(s.num).length > 2 ? 0.8 : 1.05))}px system-ui, "Segoe UI", sans-serif`;
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(s.num), x, hy + r * 0.06); c.textAlign = 'start';
   }
 }
@@ -48,7 +48,7 @@ export function paint(c, shapes, W, H, alpha = 1) {
   for (const s of shapes) {
     if (s.type === 'text') {
       const fs = Math.max(14, W * 0.022) * (s.size || 1), [x, y] = [s.pts[0][0] * W, s.pts[0][1] * H];
-      c.font = `600 ${fs}px "Segoe UI", sans-serif`; const w = c.measureText(s.text || '').width;
+      c.font = `600 ${fs}px system-ui, "Segoe UI", sans-serif`; const w = c.measureText(s.text || '').width;
       c.fillStyle = 'rgba(0,0,0,.72)'; c.fillRect(x - 6, y - 4, w + 12, fs * 1.35 + 8);
       c.fillStyle = s.color; c.textBaseline = 'top'; c.fillText(s.text || '', x, y + 2);
       continue;

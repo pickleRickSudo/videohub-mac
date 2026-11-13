@@ -1,4 +1,5 @@
-// VideoHub's render protection, built into the hub (plain Node + Windows' own PowerShell; no helper program).
+// VideoHub's render protection, built into the hub (plain Node + macOS's own renice/taskpolicy; no helper program).
+// (Notes below describe the Windows original; the macOS mechanics are at apply().)
 // Nov 2026: the old C# agent (guard\VideoHubAgent.exe, formerly RenderGuard.exe, compiled on each PC at install) is gone.
 // Windows Smart App Control blocks unsigned programs it has never seen, and its low-level calls (reading other
 // processes' memory, freezing processes, global hotkeys) looked like malware to antivirus tools.
@@ -14,7 +15,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { config } from './config.js';
-import { APPDATA, HUB_DIR, readJson, run, processAlive } from './util.js';
+import { APPDATA, readJson, run, processAlive } from './util.js';
+import { processTree, killTree, startupEnabled, setStartup, availableMB } from './platform.js';
 
 const RG = path.join(APPDATA, 'RenderGuard');   // settings.txt and the old agent's history.log (folder name kept)
 const MB = 1048576, CORES = os.cpus().length;
@@ -22,11 +24,7 @@ const MB = 1048576, CORES = os.cpus().length;
 // ---------- settings (settings.txt, key=value). VideoHub is its only UI.
 const SETTINGS = path.join(RG, 'settings.txt');
 const DEFAULTS = { CapActive: 90, CapIdle: 100, IdleMin: 2, PauseMB: 700, CriticalMB: 500, SlowCapPct: 5, LowPrio: 1 };
-const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
-// "Windows açılınca başlat" starts VideoHub itself, without a window (open.vbs --server). Older builds had a "RenderGuard"
-// entry that started RenderGuard.exe: it is removed whenever the setting is saved.
-const RUN_NAME = 'VideoHub', RUN_LEGACY = 'RenderGuard';
-const startupCommand = () => `"${path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wscript.exe')}" "${path.join(HUB_DIR, 'open.vbs')}" --server`;
+// macOS: "Start when I log in" is a LaunchAgent that starts the hub without a window (server/platform.js)
 function readKv() {
   const kv = {}; let txt = ''; try { txt = fs.readFileSync(SETTINGS, 'utf8').replace(/^\uFEFF/, ''); } catch { }
   for (const l of txt.split(/\r?\n/)) { const i = l.indexOf('='); if (i > 0) kv[l.slice(0, i).trim()] = l.slice(i + 1).trim(); }
@@ -40,8 +38,7 @@ function current() {
 let S = current();
 export async function guardSettings() {
   const out = current();
-  const r = await run('reg', ['query', RUN_KEY, '/v', RUN_NAME]);
-  out.Startup = r.code === 0 && /open\.vbs/i.test(r.stdout);
+  out.Startup = startupEnabled();
   out.exe = null; out.builtIn = true;
   return out;
 }
@@ -50,11 +47,7 @@ export async function saveGuardSettings(patch) {
   for (const k of Object.keys(DEFAULTS)) if (patch[k] != null) kv[k] = String(typeof patch[k] === 'boolean' ? (patch[k] ? 1 : 0) : Math.round(+patch[k]));
   fs.mkdirSync(RG, { recursive: true });
   fs.writeFileSync(SETTINGS, Object.entries(kv).map(([k, v]) => `${k}=${v}`).join('\r\n'));
-  if (patch.Startup != null) {
-    if (patch.Startup) await run('reg', ['add', RUN_KEY, '/v', RUN_NAME, '/t', 'REG_SZ', '/d', startupCommand(), '/f']);
-    else await run('reg', ['delete', RUN_KEY, '/v', RUN_NAME, '/f']);
-  }
-  await run('reg', ['delete', RUN_KEY, '/v', RUN_LEGACY, '/f']);   // the old agent's autostart, if an old install left it
+  if (patch.Startup != null) await setStartup(!!patch.Startup);
   guardCommand('reload');
   return guardSettings();
 }
@@ -70,40 +63,37 @@ export function guardTrack(pid, info = {}) {
   if (timer) apply(tracked.get(pid)).catch(() => { });
 }
 
+// macOS has no processor affinity, so the CPU limit works the way macOS itself throttles background work:
+//  - capped (CapActive < 100, or LowPrio): the whole render tree at a lower nice value (below-normal priority), so
+//    the apps you use always win the CPU
+//  - slowed (RAM low, or "Slow down"): lowest priority plus `taskpolicy -b` (background QoS): on Apple Silicon the
+//    render runs on the efficiency cores only, with throttled disk I/O; on Intel it gets the lowest CPU and I/O tier
+// Children started later inherit the nice value; the tick re-applies to new children (one `ps` per 3 s while rendering).
 const PRIO = { Idle: os.constants.priority.PRIORITY_LOW, BelowNormal: os.constants.priority.PRIORITY_BELOW_NORMAL, Normal: os.constants.priority.PRIORITY_NORMAL };
-const coresFor = pct => Math.max(1, Math.min(CORES, Math.round(CORES * Math.max(1, Math.min(100, pct)) / 100)));
-// the top N cores (core 0 is where Windows itself is busiest); all N = every core (lifts an earlier limit).
-// null: more than 63 cores, where one affinity mask cannot name them all (priority still applies).
-function mask(n) {
-  if (CORES > 63) return null;
-  n = Math.min(n, CORES);
-  return ((1n << BigInt(n)) - 1n) << BigInt(CORES - n);
-}
 function wanted(r) {
-  if (!timer) return { prio: 'Normal', cores: CORES };   // protection off (the hub is closing): everything back to normal
-  if (r.slow) return { prio: 'Idle', cores: coresFor(S.SlowCapPct) };
-  return { prio: S.LowPrio ? 'BelowNormal' : 'Normal', cores: coresFor(S.CapActive) };
+  if (!timer) return { prio: 'Normal', bg: false };   // protection off (the hub is closing): everything back to normal
+  if (r.slow) return { prio: 'Idle', bg: true };
+  // "Render power": 100 = normal, 51–99 = below normal, 50 or less = lowest priority (still every core when the Mac is idle)
+  return { prio: S.CapActive <= 50 ? 'Idle' : S.LowPrio || S.CapActive < 100 ? 'BelowNormal' : 'Normal', bg: false };
 }
-// priority of the root at once (Node); affinity + priority of the whole process tree through Windows' PowerShell
-// (one short script per change, never a poll). Processes the render starts later inherit both.
 async function apply(r, force = false) {
-  const w = wanted(r), key = w.prio + '/' + w.cores;
-  if (!force && r.applied === key) return;
-  r.applied = key;
-  try { os.setPriority(r.rootPid, PRIO[w.prio]); } catch { }
-  const aff = mask(w.cores);
-  const script = [
-    `$ids = @(${r.rootPid}); $all = @(Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId)`,
-    'do { $n = $ids.Count; $ids = @($ids + @($all | Where-Object { $ids -contains $_.ParentProcessId -and $ids -notcontains $_.ProcessId } | ForEach-Object { $_.ProcessId })) } while ($ids.Count -gt $n)',
-    `foreach ($i in $ids) { try { $p = Get-Process -Id $i -ErrorAction Stop; $p.PriorityClass = '${w.prio}'${aff != null ? `; $p.ProcessorAffinity = [IntPtr]${aff}` : ''} } catch { } }`,
-  ].join('\n');
-  await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
+  const w = wanted(r), key = w.prio + '/' + w.bg;
+  const ids = await processTree(r.rootPid).catch(() => [r.rootPid]);
+  const fresh = ids.filter(i => !(r.seen || (r.seen = new Set())).has(i));
+  if (!force && r.applied === key && !fresh.length) return;
+  const todo = !force && r.applied === key ? fresh : ids;
+  r.applied = key; for (const i of ids) r.seen.add(i);
+  for (const i of todo) {
+    try { os.setPriority(i, PRIO[w.prio]); } catch { }
+    await run('/usr/sbin/taskpolicy', [w.bg ? '-b' : '-B', '-p', String(i)]);
+  }
 }
 
 // every 3 s while protection is on: forget renders that ended, slow down / restore for RAM
 function tick() {
   for (const [pid] of tracked) if (!processAlive(pid)) tracked.delete(pid);
-  const free = os.freemem() / MB, list = [...tracked.values()].sort((a, b) => a.start.localeCompare(b.start));
+  for (const r of tracked.values()) apply(r).catch(() => { });   // new children of a render get the same treatment
+  const free = availableMB(), list = [...tracked.values()].sort((a, b) => a.start.localeCompare(b.start));
   updated = new Date().toISOString();
   if (!list.length || Date.now() - lastRamChange < 20e3) return;   // one change at a time, then 20 s to settle (no ping-pong)
   const ram = list.filter(r => r.slow === 'RAM'), normal = list.filter(r => !r.slow);
@@ -119,7 +109,7 @@ function tick() {
 // live state (same shape the old agent wrote to state.json)
 export function guardState() {
   if (!timer) return { running: false, reason: 'render protection is off' };
-  const free = os.freemem() / MB;
+  const free = availableMB();
   return {
     running: true, builtIn: true, updated: updated || new Date().toISOString(), age: 0,
     ramAvailMB: Math.round(free), ramTotalMB: Math.round(os.totalmem() / MB), cpu: null, capNow: S.CapActive, hotkeys: false,
@@ -134,7 +124,7 @@ export function guardCommand(action, rootPid) {
   const pick = rootPid ? [tracked.get(+rootPid)].filter(Boolean) : [...tracked.values()];
   let note = null;
   if (action === 'reload') { S = current(); for (const r of tracked.values()) apply(r).catch(() => { }); return { ok: true, note }; }
-  if (action === 'kill') { for (const r of pick) run('taskkill', ['/PID', String(r.rootPid), '/T', '/F']); return { ok: true, note }; }
+  if (action === 'kill') { for (const r of pick) killTree(r.rootPid); return { ok: true, note }; }
   if (/^(pause|pauseAll|slow)$/.test(action)) { if (action !== 'slow') note = 'Pausing is no longer available: the render was slowed down to the minimum instead.'; for (const r of pick) { r.slow = 'manual'; apply(r).catch(() => { }); } }
   else if (/^(resume|resumeAll|normal)$/.test(action)) for (const r of pick) { r.slow = null; apply(r).catch(() => { }); }
   else return { ok: false, note: 'unknown command' };

@@ -114,7 +114,7 @@ export function openVariantViewer({ pid, tid, getBrief, vid, onChanged, onFix, o
             : h('div', { class: 'dim' }, 'Click the image and describe what should change. Then "Send fixes to Claude" asks Claude to change only those areas. (← → other variants)')),
         h('div', { class: 'row', style: { gap: '8px' } },
           h('button', { class: 'ghost danger', onclick: async () => {
-            if (!await confirmBox('Delete variant', h('div', {}, `${v.id} will be moved to the Recycle Bin.`), 'Delete')) return;
+            if (!await confirmBox('Delete variant', h('div', {}, `${v.id} will be moved to the Trash.`), 'Delete')) return;
             try { await api(`/api/thumbstudio/${pid}/${tid}/variant/${v.id}/delete`, { method: 'POST' }); await onChanged(); const rest = getBrief().variants || []; if (!rest.length) close(); else { cur = rest[rest.length - 1].id; draw(); } }
             catch (e) { toast('Could not delete: ' + e.message, true); }
           } }, '🗑 Delete'),

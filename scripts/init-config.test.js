@@ -51,13 +51,13 @@ test('a re-run keeps every answer and value, adds only missing keys, never touch
   assert.equal(fs.readFileSync(file, 'utf8'), '{ broken');
 });
 
-test('workspace checks: full path, not a drive, not inside the install, not a file', () => {
+test('workspace checks: full path, not a whole disk, not inside the install, not a file', () => {
   const d = scratch(), f = path.join(d, 'file.txt'); fs.writeFileSync(f, 'x');
   assert.equal(checkWorkspace(path.join(d, 'new', 'deeper'), hubDir), null);
   assert.match(checkWorkspace('videos'), /full path/);
-  assert.match(checkWorkspace('C:\\'), /whole drive/);
+  assert.match(checkWorkspace('/'), /whole disk/); assert.match(checkWorkspace('/Volumes/Ext'), /whole disk/); assert.match(checkWorkspace('C:\\Videos'), /full path/);
   assert.match(checkWorkspace(path.join(HUB, 'films')), /outside the VideoHub program folder/);
   assert.match(checkWorkspace(f, hubDir), /file/);
-  assert.throws(() => initConfig({ dataDir: path.join(d, 'data'), workspace: 'C:\\', discover: none, hubDir }), /whole drive/);
+  assert.throws(() => initConfig({ dataDir: path.join(d, 'data'), workspace: '/', discover: none, hubDir }), /whole disk/);
   assert.throws(() => initConfig({ dataDir: path.join(d, 'data'), workspace: path.join(d, 'w'), encoder: 'turbo', discover: none, hubDir }), /encoder/);
 });

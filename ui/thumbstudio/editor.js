@@ -67,8 +67,8 @@ export async function renderEditor(page, pid, tid) {
   // 1. Header
   const titleText = h('span', { class: 'editor-title' }, brief.title || 'Untitled Thumbnail');
   const saveIndicator = h('span', { class: 'save-badge' }, '✓ Saved');
-  const undoBtn = h('button', { class: 'ghost', title: 'Undo (Ctrl+Z)', disabled: true }, '↶');
-  const redoBtn = h('button', { class: 'ghost', title: 'Redo (Ctrl+Y)', disabled: true }, '↷');
+  const undoBtn = h('button', { class: 'ghost', title: 'Undo (⌘Z)', disabled: true }, '↶');
+  const redoBtn = h('button', { class: 'ghost', title: 'Redo (⌘⇧Z)', disabled: true }, '↷');
 
   undoBtn.onclick = () => history.undo();
   redoBtn.onclick = () => history.redo();
@@ -138,7 +138,7 @@ export async function renderEditor(page, pid, tid) {
         onclick: () => openSaveTemplateModal(state.brief)
       }, '💾 Save template'),
       h('button', { class: 'ghost', onclick: () => openReferencesModal(pid, tid, state.brief, { onUpdated: () => onStateChanged() }) }, 'References'),
-      h('button', { class: 'ghost', title: 'Writes layout.png, sketch.png, depth.png, prompt.txt and brief.md (Ctrl+S)', onclick: () => doExport(true) }, '⤓ Export'),
+      h('button', { class: 'ghost', title: 'Writes layout.png, sketch.png, depth.png, prompt.txt and brief.md (⌘S)', onclick: () => doExport(true) }, '⤓ Export'),
       h('button', { class: 'primary', title: 'Exports and copies a message to paste into a Claude chat', onclick: () => sendToClaude() }, '💬 Send to Claude')
     )
   );

@@ -1,5 +1,8 @@
 # Moving an existing (Turkish) install to this version
 
+> **macOS port note.** This file describes moving between older Windows installs; none of it applies to a fresh Mac install.
+
+
 Older VideoHub builds were Turkish and had folder defaults for one particular PC. This version is English and its
 defaults live under `Documents\VideoHub`. Nothing is lost when you switch, but a few settings should be written down
 first so VideoHub keeps using your current folders.

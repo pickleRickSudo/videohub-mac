@@ -14,7 +14,7 @@ const INDEX = path.join(DATA_DIR, 'index.json');
 
 // ---------- what a single file is
 function category(rel, name) {
-  const r = '\\' + rel.toLowerCase();
+  const r = '\\' + rel.toLowerCase().replace(/\//g, '\\');   // the patterns below use \ as the separator (macOS paths turned into that form)
   if (/\\render\\profiles\\|\\profiles\\w\d|\\chrome-profile/.test(r)) return 'profile';
   if (/\\chunks_(prev|v\d)[^\\]*\\/.test(r)) return 'oldChunk';
   if (/\\chunks\\/.test(r) || /^c_\d{3,}\.mp4$/i.test(name)) return 'chunk';
@@ -117,7 +117,7 @@ function markClips(outs, filmDur, registered) {
   for (const o of outs) {
     if (!['final', 'web', 'preview'].includes(o.role) || registered.has(o.rel.toLowerCase())) continue;
     const short = filmDur >= 20 && (o.info.dur || 0) < filmDur * 0.5;
-    if (short || CLIP_DIRS.test('\\' + o.rel) || CLIP_NAME.test(o.name.replace(/\.[^.]+$/, ''))) o.role = 'clip';
+    if (short || CLIP_DIRS.test('\\' + o.rel.replace(/\//g, '\\')) || CLIP_NAME.test(o.name.replace(/\.[^.]+$/, ''))) o.role = 'clip';
   }
 }
 // the newest film; files written within 2 min of each other (a copy, a touched file) go by version number
@@ -398,7 +398,7 @@ export function setNoteCounts(id, notes) {
   emit({ type: 'notes', id });
 }
 
-// a project leaves the list at once (hidden, or its folder went to the Recycle Bin)
+// a project leaves the list at once (hidden, or its folder went to the Trash)
 export function dropProject(id) {
   state.projects = state.projects.filter(x => x.id !== id);
   writeJson(INDEX, { at: state.at, projects: state.projects });

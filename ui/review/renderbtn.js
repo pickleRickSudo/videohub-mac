@@ -43,7 +43,7 @@ export function createRenderButton(p, { notes }) {
     const settings = h('div', { class: 'rsets' },
       sel(p.studio ? 'Chrome instances' : 'Parallel', 'Render workers running at once (more workers need more RAM)', Array.from({ length: ro.workers?.max || 4 }, (_, i) => i + 1), set.workers, v => { set.workers = +v; }),
       fpsSel,
-      ro.codecs ? sel('Encoder', ro.codecEnv ? 'auto: the graphics card when this PC has one that can encode video (same quality, usually faster), else the processor (x264). Default: Settings → Render speed.' : 'auto: NVENC with NVIDIA, otherwise x264 (AMD AMF is offered too, but it lost detail in tests)', ro.codecs, set.codec, v => { set.codec = v; }, v => ro.codecLabels?.[v] || v) : null);
+      ro.codecs ? sel('Encoder', ro.codecEnv ? 'auto: the Mac\'s hardware encoder (VideoToolbox) when it works (usually faster), else the processor (x264). Default: Settings → Render speed.' : 'auto: the Mac\'s hardware encoder (VideoToolbox) when it works, otherwise x264', ro.codecs, set.codec, v => { set.codec = v; }, v => ro.codecLabels?.[v] || v) : null);
     const mins = rc.env?.DUR ? Math.round(+rc.env.DUR / 60 * 10) / 10 : null;
     let mode = canPart ? 'partial' : 'full';
     const opt = (m, label, sub) => h('label', { class: 'row', style: { gap: '8px', alignItems: 'flex-start', margin: '6px 0' } },

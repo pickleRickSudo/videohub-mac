@@ -20,7 +20,8 @@ export const DOCUMENTS = (() => {
   for (const d of [path.join(HOME, 'Documents'), path.join(HOME, 'OneDrive', 'Documents')]) if (fs.existsSync(d)) return d;
   return path.join(HOME, 'Documents');
 })();
-export const APPDATA = process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming');
+// macOS port: per-user app settings live in ~/Library/Application Support (the Windows build used %APPDATA%)
+export const APPDATA = process.env.VIDEOHUB_APPDATA || path.join(HOME, 'Library', 'Application Support');
 export const TEMP = os.tmpdir();
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -28,13 +29,21 @@ export const idOf = p => crypto.createHash('sha1').update(path.resolve(p).toLowe
 export const norm = p => path.resolve(p).toLowerCase();
 // Folders that were moved can leave junctions at their old paths, so compare real paths (cached)
 const realCache = new Map();
-const realNorm = p => { const k = norm(p); let r = realCache.get(k); if (r === undefined) { try { r = fs.realpathSync.native(k).toLowerCase(); realCache.set(k, r); } catch { r = k; } } return r; };
+// a path that does not exist yet: the real path of its nearest existing folder + the rest (macOS: /var and /tmp are
+// symlinks into /private, so a new file in a temp folder must compare against the temp folder's real path)
+const realNorm = p => {
+  const k = norm(p); let r = realCache.get(k); if (r !== undefined) return r;
+  try { r = fs.realpathSync.native(k).toLowerCase(); realCache.set(k, r); return r; } catch { }
+  let up = k, rest = '';
+  while (path.dirname(up) !== up) { rest = path.join(path.basename(up), rest); up = path.dirname(up); try { return path.join(fs.realpathSync.native(up).toLowerCase(), rest); } catch { } }
+  return k;
+};
 export const isInside = (child, parent) => { const c = realNorm(child), p = realNorm(parent); return c === p || c.startsWith(p.endsWith(path.sep) ? p : p + path.sep); };
 // does a command line or path refer to a path inside this install? Never by folder name: films live in Documents\VideoHub\films
 // and the install folder can have any name (a GitHub ZIP unpacks as VideoHub-main). Case-insensitive, both slash styles.
 const slashes = s => String(s || '').toLowerCase().replace(/[\\/]+/g, '/');
 export const refersToHub = (s, hub = HUB_DIR) => new RegExp(slashes(hub).replace(/\/$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:/|["\'\\s]|$)').test(slashes(s));
-export const shortPath = p => (isInside(p, DESKTOP) ? path.relative(DESKTOP, p) : isInside(p, HOME) ? '~\\' + path.relative(HOME, p) : p) || p;
+export const shortPath = p => (isInside(p, DESKTOP) ? path.relative(DESKTOP, p) : isInside(p, HOME) ? '~/' + path.relative(HOME, p) : p) || p;
 
 export function readJson(file, fallback = null) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); } catch { return fallback; }
@@ -54,10 +63,10 @@ export function run(cmd, args, opts = {}) {
   });
 }
 
-// PowerShell with a script passed via -EncodedCommand (no quoting trouble)
-export function powershell(script, opts = {}) {
-  const enc = Buffer.from(script, 'utf16le').toString('base64');
-  return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', enc], opts);
+// AppleScript through osascript (the macOS stand-in for the Windows build's PowerShell helper); args reach the script's
+// `on run argv` handler, so paths never need quoting inside the script
+export function osascript(script, args = [], opts = {}) {
+  return run('/usr/bin/osascript', ['-e', script, ...args.map(String)], opts);
 }
 
 export async function pLimit(items, n, fn) {
@@ -72,12 +81,18 @@ function which(name, extra = []) {
   for (const d of dirs) { const f = path.join(d, name); if (d && fs.existsSync(f)) return f; }
   return null;
 }
+// Homebrew (Apple Silicon and Intel) and MacPorts folders are added because apps started from Finder / launchd get a
+// short PATH without them
+const BREW = ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin'];
+// render scripts and commands the hub starts inherit this PATH (a hub started at login by launchd has only /usr/bin:/bin)
+{ const have = (process.env.PATH || '').split(':'); process.env.PATH = [...have, ...BREW.filter(d => !have.includes(d) && fs.existsSync(d))].filter(Boolean).join(':'); }
+const app = (...names) => names.flatMap(n => ['/Applications', path.join(HOME, 'Applications')].map(d => path.join(d, n))).find(f => fs.existsSync(f)) || null;
 export const TOOLS = {
-  ffmpeg: which('ffmpeg.exe', ['C:\\ffmpeg\\bin']) || 'ffmpeg',
-  ffprobe: which('ffprobe.exe', ['C:\\ffmpeg\\bin']) || 'ffprobe',
+  ffmpeg: which('ffmpeg', BREW) || 'ffmpeg',
+  ffprobe: which('ffprobe', BREW) || 'ffprobe',
   node: process.execPath,
-  edge: ['C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', 'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'].find(f => fs.existsSync(f)) || null,
-  chrome: ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', path.join(HOME, 'AppData\\Local\\Google\\Chrome\\Application\\chrome.exe')].find(f => fs.existsSync(f)) || null,
+  edge: app('Microsoft Edge.app/Contents/MacOS/Microsoft Edge'),
+  chrome: app('Google Chrome.app/Contents/MacOS/Google Chrome', 'Chromium.app/Contents/MacOS/Chromium', 'Brave Browser.app/Contents/MacOS/Brave Browser'),
 };
 
 // ---------- ffprobe with a persistent cache (path + size + mtime)

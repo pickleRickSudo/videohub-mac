@@ -107,7 +107,7 @@ export function renderFinalPanel(container, { pid, tid, getBrief, onEdit, onSave
     info.textContent = `Last saved: ${(b.final.bytes / 1048576).toFixed(2)} MB · ${b.final.w}×${b.final.h}${b.final.copy ? ' · Also in the Outputs folder' : ''}${b.final.copyError ? ' · Could not copy to the Outputs folder: ' + b.final.copyError : ''}`;
     actions.append(
       h('button', { class: 'ghost', onclick: () => api(`/api/thumbstudio/${pid}/${tid}/open-folder`, { method: 'POST', body: { file: 'final.jpg' } }).catch(e => toast(e.message, true)) }, '📂 Show in folder'),
-      h('button', { class: 'ghost', onclick: async () => { const t = await api(`/api/thumbstudio/find/${tid}`); const p = t.dir + '\\final.jpg'; try { await navigator.clipboard.writeText(p); toast('Path copied'); } catch { toast(p); } } }, '⧉ Copy path'),
+      h('button', { class: 'ghost', onclick: async () => { const t = await api(`/api/thumbstudio/find/${tid}`); const p = t.dir + '/final.jpg'; try { await navigator.clipboard.writeText(p); toast('Path copied'); } catch { toast(p); } } }, '⧉ Copy path'),
       b.final.copy ? h('button', { class: 'ghost', title: b.final.copy, onclick: async () => { try { await navigator.clipboard.writeText(b.final.copy); toast('Outputs folder path copied'); } catch { toast(b.final.copy); } } }, '⧉ Output path') : null);
   };
   drawActions(brief);

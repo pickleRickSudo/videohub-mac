@@ -105,9 +105,9 @@ export const LIGHT_TIMES = [
 export const TEXT_PRESETS = [
   { id: 'youtube-bold', name: 'YouTube bold', font: 'Impact', fill: '#ffffff', stroke: '#000000', strokeW: 0.06, shadow: true, uppercase: true },
   { id: 'documentary-serif', name: 'Documentary serif', font: 'Georgia', fill: '#f5f5dc', stroke: '#1a1a1a', strokeW: 0.02, shadow: false, uppercase: false },
-  { id: 'clean-minimal', name: 'Clean minimal', font: 'Segoe UI', fill: '#ffffff', stroke: null, strokeW: 0, shadow: true, uppercase: false },
+  { id: 'clean-minimal', name: 'Clean minimal', font: 'Helvetica Neue', fill: '#ffffff', stroke: null, strokeW: 0, shadow: true, uppercase: false },
   { id: 'neon', name: 'Neon', font: 'Arial Black', fill: '#00ffff', stroke: '#ff00ff', strokeW: 0.03, shadow: true, uppercase: true },
-  { id: 'label-box', name: 'Label box', font: 'Bahnschrift', fill: '#ffffff', stroke: null, strokeW: 0, shadow: false, uppercase: true, bg: '#f08a3c' },
+  { id: 'label-box', name: 'Label box', font: 'Avenir Next Condensed', fill: '#ffffff', stroke: null, strokeW: 0, shadow: false, uppercase: true, bg: '#f08a3c' },
 ];
 
 // ---------- effect kinds

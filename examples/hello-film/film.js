@@ -60,11 +60,11 @@
     g.save();
     g.globalAlpha = 1 - out;
     g.translate(W / 2, H * 0.45 - out * 80);
-    g.font = '800 150px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '800 150px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = C.paper; g.fillText(text.slice(0, shown), 0, 0);
     if (shown < text.length && Math.floor(t * 4) % 2 === 0) { const w = g.measureText(text.slice(0, shown)).width; g.fillStyle = C.accent; g.fillRect(w / 2 + 12, -70, 14, 140); }
     g.globalAlpha = (1 - out) * ease((t - 1.9) / 0.6);
-    g.font = '500 46px "Segoe UI", system-ui, sans-serif'; g.fillStyle = '#c9cbe0';
+    g.font = '500 46px system-ui, "Segoe UI", sans-serif'; g.fillStyle = '#c9cbe0';
     g.fillText('a film written as code · previewed live · rendered once', 0, 120);
     g.restore();
   }
@@ -90,7 +90,7 @@
       g.fill(); g.restore();
     });
     g.save(); g.globalAlpha = ease(s / 0.5) * (1 - ease((s - 3) / 0.4));
-    g.font = '700 64px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = C.paper;
+    g.font = '700 64px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'center'; g.fillStyle = C.paper;
     g.fillText('Leave a note on any frame', W / 2, H * 0.2);
     g.restore();
   }
@@ -99,17 +99,17 @@
     const s = t - 7, k = back(s / 0.8);
     g.save(); g.translate(W / 2, H * 0.47); g.scale(lerp(0.6, 1, k), lerp(0.6, 1, k)); g.globalAlpha = clamp(s / 0.4) * (1 - clamp((s - 2.6) / 0.4));
     g.fillStyle = C.accent; g.beginPath(); g.roundRect(-430, -110, 860, 220, 110); g.fill();
-    g.font = '800 96px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = C.ink;
+    g.font = '800 96px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = C.ink;
     g.fillText('Fix it in code', 0, 4);
     g.restore();
     g.save(); g.globalAlpha = ease((s - 0.8) / 0.6) * (1 - clamp((s - 2.6) / 0.4));
-    g.font = '500 44px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#e4e5f2';
+    g.font = '500 44px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'center'; g.fillStyle = '#e4e5f2';
     g.fillText('…and render only when it is right.', W / 2, H * 0.47 + 190);
     g.restore();
   }
 
   function timecode(t) {
-    g.save(); g.font = '600 26px Consolas, monospace'; g.fillStyle = 'rgba(255,255,255,0.55)'; g.textAlign = 'right';
+    g.save(); g.font = '600 26px Menlo, Consolas, monospace'; g.fillStyle = 'rgba(255,255,255,0.55)'; g.textAlign = 'right';
     g.fillText(`${t.toFixed(2)} s`, W - 40, H - 36); g.restore();
   }
 

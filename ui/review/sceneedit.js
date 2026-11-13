@@ -393,7 +393,7 @@ export function createSceneEditor({ src, projectId, frame, panelHost, onOpen, on
       ...body.filter(Boolean),
       h('div', { class: 'sedit-foot dim' },
         `In this scope: ${here.camera ? 'camera ✓ · ' : ''}${nObj} objects · ${nOv} screen items · ${nAll} scenes adjusted · ${nCut} cuts`,
-        h('span', { class: 'spacer' }), b('↶ Undo', 'Ctrl+Z', () => { if (back()) history?.undone?.(); }, 'ghost'),
+        h('span', { class: 'spacer' }), b('↶ Undo', '⌘Z', () => { if (back()) history?.undone?.(); }, 'ghost'),
         h('span', {}, savedAt && Date.now() - savedAt < 4000 ? ' · saved ✓' : '')));
   }
   const describeTweak = (t) => [t.dp && `moved (${t.dp.map((n) => n.toFixed(2)).join(', ')})`, t.ry && `${t.ry}°`, t.s && `×${t.s.toFixed(2)}`, t.hide && 'hidden'].filter(Boolean).join(' · ');

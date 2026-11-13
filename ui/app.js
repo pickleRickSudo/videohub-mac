@@ -164,7 +164,7 @@ async function welcomePanel() {
       h('button', { onclick: () => location.hash = '#/settings' }, '📂 Add a folder…')),
     c.workspace ? h('div', { class: 'sub', style: { marginTop: '10px' } }, 'Your workspace (films, outputs, sounds, thumbnails, archive): ', h('span', { class: 'mono' }, c.workspace)) : null,
     h('div', { class: 'row', style: { gap: '8px', marginTop: '8px', alignItems: 'center' } }, h('span', { class: 'sub' }, 'Render speed:'), renderSpeedControl(c)),
-    h('p', { class: 'dim', style: { fontSize: '12.5px', marginBottom: 0 } }, 'The example (examples\\hello-film) is a 10-second film that shows the whole loop: live preview, notes, a chunked render with sound, partial re-renders. What a film folder needs is described in docs\\PROJECT-CONTRACT.md.'));
+    h('p', { class: 'dim', style: { fontSize: '12.5px', marginBottom: 0 } }, 'The example (examples/hello-film) is a 10-second film that shows the whole loop: live preview, notes, a chunked render with sound, partial re-renders. What a film folder needs is described in docs\\PROJECT-CONTRACT.md.'));
   return box;
 }
 
@@ -173,13 +173,13 @@ async function welcomePanel() {
 function renderSpeedControl(c) {
   const cur = c.render?.encoder || 'auto';
   const sel = h('select', { disabled: true, title: 'Which encoder turns the frames into the MP4' }, h('option', { value: cur }, cur));
-  const note = h('span', { class: 'dim', style: { fontSize: '12.5px' } }, 'checking this PC…');
+  const note = h('span', { class: 'dim', style: { fontSize: '12.5px' } }, 'checking this Mac…');
   api('/api/encoders').then(e => {
     const has = new Set(e.available || []), L = e.labels || {};
-    sel.replaceChildren(...['auto', 'nvenc', 'amf', 'qsv', 'x264'].map(v => h('option', { value: v, selected: v === cur, disabled: v !== 'auto' && v !== cur && !has.has(v) },
-      (L[v] || v) + (v !== 'auto' && v !== 'x264' && !has.has(v) ? ' (not on this PC)' : ''))));
+    sel.replaceChildren(...['auto', 'vt', 'x264'].map(v => h('option', { value: v, selected: v === cur, disabled: v !== 'auto' && v !== cur && !has.has(v) },
+      (L[v] || v) + (v !== 'auto' && v !== 'x264' && !has.has(v) ? ' (not on this Mac)' : ''))));
     sel.disabled = false;
-    note.textContent = e.best && e.best !== 'x264' ? `This PC can encode on its graphics card (${e.best}${e.gpus?.length ? ', ' + e.gpus[0] : ''}): same quality, usually faster.` : 'No graphics-card encoder found: renders use the processor (x264).';
+    note.textContent = e.best && e.best !== 'x264' ? `This Mac can encode in hardware (${e.best === 'vt' ? 'VideoToolbox' : e.best}${e.gpus?.length ? ', ' + e.gpus[0] : ''}): same quality, usually faster.` : 'No hardware encoder found: renders use the processor (x264).';
   }).catch(() => { sel.disabled = false; note.textContent = ''; });
   sel.onchange = async () => { try { await api('/api/config', { method: 'POST', body: { render: { encoder: sel.value } } }); toast('Render speed saved: ' + sel.selectedOptions[0].textContent); } catch (err) { toast('Could not save: ' + err.message, true); } };
   return h('span', { class: 'row', style: { gap: '8px', alignItems: 'center', flexWrap: 'wrap' } }, sel, note);
@@ -211,7 +211,7 @@ async function projectsPage(page) {
     h('input', { type: 'search', placeholder: 'Search…', value: state.q, oninput: e => { state.q = e.target.value; draw(); } }),
     sel('status', [['', 'All statuses'], ...STATUSES.concat('done').map(s => [s, PROJECT_STATUS_LABEL[s] || s])]),
     sel('family', [['', 'All types'], ...Object.entries(FAMILY)]),
-    sel('root', [['', 'All folders'], ...roots.map(r => [r, r.split('\\').slice(-2).join('\\')])]),
+    sel('root', [['', 'All folders'], ...roots.map(r => [r, r.split(/[\\/]/).slice(-2).join('/')])]),
     sel('sort', [['updated', 'Recently updated'], ['size', 'Largest'], ['bloat', 'Most bloated'], ['notes', 'With open notes'], ['name', 'By name']]),
   ));
   const grid = h('div', { class: 'grid' }); page.append(grid);
@@ -263,8 +263,8 @@ function projectCard(p) {
         p.live ? h('button', { class: 'ghost cardlink', onclick: e => { e.stopPropagation(); openProject(p); } }, 'Live code') : null,
         p.latest ? h('button', { class: 'ghost cardlink', title: 'Latest saved MP4; may differ from the live code', onclick: e => { e.stopPropagation(); location.hash = `#/review/${p.id}/${encodeURIComponent(p.latest)}`; } }, 'Latest MP4') : null,
         h('span', { class: 'spacer' }),
-        h('button', { class: 'cardbtn', title: 'Open folder (Explorer)', onclick: e => { e.stopPropagation(); openFolder(p.id); } }, '📂'),
-        h('button', { class: 'cardbtn', title: 'Remove project… (from the list or to the Recycle Bin)', onclick: e => { e.stopPropagation(); removeProject(p, () => render()); } }, '🗑')),
+        h('button', { class: 'cardbtn', title: 'Open folder (Finder)', onclick: e => { e.stopPropagation(); openFolder(p.id); } }, '📂'),
+        h('button', { class: 'cardbtn', title: 'Remove project… (from the list or to the Trash)', onclick: e => { e.stopPropagation(); removeProject(p, () => render()); } }, '🗑')),
       h('div', { class: 'bloat', title: 'green: videos, orange: intermediate files' }, h('i', { style: { width: (100 * out / Math.max(1, p.sizes?.total)) + '%', background: 'var(--green)' } }), h('i', { style: { width: (100 * junk / Math.max(1, p.sizes?.total)) + '%', background: 'var(--accent)' } })),
     ));
 }
@@ -276,7 +276,7 @@ async function openProject(p) {
   else if (p.outputsCount && p.latest) location.hash = `#/review/${p.id}/${encodeURIComponent(p.latest)}`;
   else location.hash = '#/p/' + p.id;
 }
-// "Remove": hide it from the list (no file touched, restore from Settings) or send its folder to the Recycle Bin
+// "Remove": hide it from the list (no file touched, restore from Settings) or send its folder to the Trash
 export async function removeProject(p, after) {
   let mode = 'hide';
   const opt = (m, label, sub) => h('label', { class: 'row', style: { gap: '8px', alignItems: 'flex-start', margin: '8px 0' } },
@@ -286,21 +286,21 @@ export async function removeProject(p, after) {
     h('div', { class: 'mono', style: { fontSize: '12.5px', wordBreak: 'break-all', margin: '4px 0 8px' } }, where),
     h('div', { class: 'muted' }, `Size: ${GB(p.sizes?.total || 0)}`),
     opt('hide', 'Remove from list', 'VideoHub will hide this project without changing any files. Restore it from Settings → Hidden projects.'),
-    opt('delete', 'Delete folder (Recycle Bin)', p.group ? 'This film’s files go to the Recycle Bin, where you can restore them.' : 'The entire project folder goes to the Recycle Bin, where you can restore it. Unavailable while rendering.')), 'Apply');
+    opt('delete', 'Delete folder (Trash)', p.group ? 'This film’s files go to the Trash, where you can restore them.' : 'The entire project folder goes to the Trash, where you can restore it. Unavailable while rendering.')), 'Apply');
   if (!ok) return false;
   try {
     if (mode === 'hide') { await api(`/api/project/${p.id}/hide`, { method: 'POST' }); toast('Removed from list (Settings → Hidden projects)'); }
     else {
-      toast('Sending to Recycle Bin…');
+      toast('Sending to Trash…');
       const r = await api(`/api/project/${p.id}/delete-folder`, { method: 'POST' });
-      if (r.ok) toast(`Sent to Recycle Bin · ${GB(p.sizes?.total || 0)} freed`); else toast('Could not delete: ' + (r.error || ''), true);
+      if (r.ok) toast(`Sent to Trash · ${GB(p.sizes?.total || 0)} freed`); else toast('Could not delete: ' + (r.error || ''), true);
     }
   } catch (e) { toast(e.message, true); return false; }
   after && after(); return true;
 }
 
 // ---------- Project
-// the project folder (or a video's folder with the video selected) in Explorer
+// the project folder (or a video's folder with the video selected) in Finder
 export const openFolder = (id, file) => api(`/api/project/${id}/open-folder`, { method: 'POST', body: file ? { file } : {} }).catch(e => toast(e.message, true));
 // "🖼 Thumbnail" on a project: its newest thumbnail, or a new one for it
 async function openProjectThumbnail(p) {
@@ -328,7 +328,7 @@ async function projectPage(page, id) {
       h('button', { title: 'Thumbnails for this project (Thumbnail Studio)', onclick: () => openProjectThumbnail(p) }, '🖼 Thumbnail'),
       h('button', { title: p.path, onclick: () => openFolder(id) }, '📂 Open folder'),
       h('button', { onclick: async () => { await api(`/api/project/${id}/rescan`, { method: 'POST' }); render(); } }, 'Rescan'),
-      h('button', { class: 'ghost', title: 'Remove from the list or send the folder to the Recycle Bin', onclick: () => removeProject(p, () => { location.hash = '#/'; }) }, '🗑 Remove…'),
+      h('button', { class: 'ghost', title: 'Remove from the list or send the folder to the Trash', onclick: () => removeProject(p, () => { location.hash = '#/'; }) }, '🗑 Remove…'),
       h('span', { class: 'muted' }, 'Status'), statusSel),
   );
   // this project's thumbnails (Thumbnail Studio), filled in when the list arrives
@@ -348,7 +348,7 @@ async function projectPage(page, id) {
   else page.append(h('div', { class: 'panel', style: { padding: '4px 6px' } }, h('table', { class: 't' },
     h('tr', {}, h('th', {}, 'File'), h('th', {}, 'Type'), h('th', { class: 'num' }, 'Duration'), h('th', { class: 'num' }, 'Resolution'), h('th', { class: 'num' }, 'Size'), h('th', { class: 'num' }, 'Date'), h('th', {})),
     p.outputs.map(o => h('tr', {},
-      h('td', {}, h('span', { class: 'ellip', title: o.path }, o.rel), o.dupOf ? h('div', { class: 'dim', style: { fontSize: '12px' } }, 'copy of: ' + o.dupOf.split('\\').slice(-2).join('\\')) : null, o.role === 'silent' && o.coveredBy ? h('div', { class: 'dim', style: { fontSize: '12px' } }, 'video included in: ' + o.coveredBy) : null),
+      h('td', {}, h('span', { class: 'ellip', title: o.path }, o.rel), o.dupOf ? h('div', { class: 'dim', style: { fontSize: '12px' } }, 'copy of: ' + o.dupOf.split(/[\\/]/).slice(-2).join('/')) : null, o.role === 'silent' && o.coveredBy ? h('div', { class: 'dim', style: { fontSize: '12px' } }, 'video included in: ' + o.coveredBy) : null),
       h('td', {}, pill(o.role, ROLE[o.role] || o.role)),
       h('td', { class: 'num' }, DUR(o.dur)), h('td', { class: 'num muted' }, o.w ? `${o.w}×${o.h} ${Math.round(o.fps)}fps` : '—'),
       h('td', { class: 'num' }, GB(o.size)), h('td', { class: 'num muted' }, AGO(o.mtime)),
@@ -395,12 +395,12 @@ function tidyBlock(p, after) {
   return h('div', {},
     h('h2', {}, 'Tidy up this project'),
     h('div', { class: 'sub', style: { marginBottom: '8px' } }, `Videos ${GB(film)} · leftovers ${GB(left)}`,
-      inReview && p.render?.chunkSec ? h('span', { class: 'dim' }, ' · film in review: render\\chunks are kept for partial renders (mark it "approved" to include them in cleanup)') : null),
+      inReview && p.render?.chunkSec ? h('span', { class: 'dim' }, ' · film in review: render/chunks are kept for partial renders (mark it "approved" to include them in cleanup)') : null),
     !p.busy && (p.sizes?.chunk || 0) > 0 && (inReview || p.statusAuto) ? h('div', { class: 'panel release-chunks' },
       h('b', {}, GB(p.sizes.chunk) + ' of render chunks kept for revision.'),
       h('p', { class: 'sub' }, 'Once review is finished, you can release the chunks for cleanup. Code, audio and final videos stay; later changes will need a full render.'),
       h('button', { disabled: p.notesOpen > 0, title: p.notesOpen > 0 ? 'Resolve the open revision notes first.' : '', onclick: async () => {
-        if (await confirmBox('Is the review finished?', h('p', {}, 'The project will be marked approved. You can then select the render chunks and send them to the Recycle Bin; this step does not delete files.'), 'Finish review')) {
+        if (await confirmBox('Is the review finished?', h('p', {}, 'The project will be marked approved. You can then select the render chunks and send them to the Trash; this step does not delete files.'), 'Finish review')) {
           await api('/api/project/' + p.id + '/meta', { method: 'POST', body: { status: 'approved' } }); render();
         }
       } }, 'Review finished · release chunks for cleanup')) : null,
@@ -416,7 +416,7 @@ function cleanupBlock(cands, after, pre = c => c.checked, title = true) {
   upd();
   return h('div', {}, title ? h('h2', {}, `Available to clean · ${GB(cands.reduce((s, c) => s + c.size, 0))}`) : null, h('div', { class: 'rule' }, h('div', { class: 'items', style: { borderTop: 0 } },
     cands.map(c => h('label', { class: 'item' }, h('input', { type: 'checkbox', checked: checked.has(c.id), onchange: e => { e.target.checked ? checked.add(c.id) : checked.delete(c.id); upd(); } }),
-      h('div', {}, h('div', { class: 'ellip', title: c.path }, c.path.split('\\').slice(-3).join('\\')), h('div', { class: 'why' }, (c.action === 'archive' ? 'Moves to archive · ' : 'Recycle Bin · ') + c.reason)),
+      h('div', {}, h('div', { class: 'ellip', title: c.path }, c.path.split(/[\\/]/).slice(-3).join('/')), h('div', { class: 'why' }, (c.action === 'archive' ? 'Moves to archive · ' : 'Trash · ') + c.reason)),
       h('div', { class: 'num' }, GB(c.size)))))), h('div', { class: 'row', style: { marginTop: '8px' } }, btn));
 }
 
@@ -436,14 +436,14 @@ function drawCleanBox() {
     const pct = st.total ? Math.round(100 * st.done / st.total) : 0;
     putClean(h('b', {}, st.phase === 'list' ? 'Preparing cleanup…' : `Cleaning · ${st.done}/${st.total}`),
       h('div', { class: 'bar' }, h('i', { style: { width: pct + '%' } })),
-      h('div', { class: 'muted' }, `${GB(st.freed)} freed`, st.current ? h('div', { class: 'ellip dim', title: st.current }, st.current.split('\\').slice(-3).join('\\')) : null),
+      h('div', { class: 'muted' }, `${GB(st.freed)} freed`, st.current ? h('div', { class: 'ellip dim', title: st.current }, st.current.split(/[\\/]/).slice(-3).join('/')) : null),
       h('div', { class: 'dim', style: { fontSize: '12px' } }, 'You can keep using VideoHub; cleanup continues even if you close the page.'));
   } else {
     const rs = st.results || [], bad = rs.filter(r => r.status === 'error'), other = rs.filter(r => r.status === 'skipped' || r.status === 'gone');
     putClean(h('b', {}, `Cleanup finished · ${GB(st.freed)} freed`),
       h('div', { class: 'muted' }, `${st.ok} done${bad.length ? ` · ${bad.length} failed` : ''}${other.length ? ` · ${other.length} skipped / already gone` : ''}`),
       bad.length || other.length ? h('div', { class: 'cleanres' }, [...bad, ...other].map(r => h('div', { class: 'item' + (r.status === 'error' ? ' red' : '') },
-        h('div', {}, h('b', {}, STATUS_TR[r.status] + ' '), r.path ? h('span', { class: 'ellip', title: r.path }, (r.project ? r.project + ' · ' : '') + r.path.split('\\').slice(-3).join('\\')) : null),
+        h('div', {}, h('b', {}, STATUS_TR[r.status] + ' '), r.path ? h('span', { class: 'ellip', title: r.path }, (r.project ? r.project + ' · ' : '') + r.path.split(/[\\/]/).slice(-3).join('/')) : null),
         h('div', { class: 'why' }, r.error || '')))) : null,
       h('div', { class: 'row' }, h('span', { class: 'spacer' }), h('button', { onclick: () => { cleanBox.remove(); cleanBox = null; } }, 'Close')));
   }
@@ -461,7 +461,7 @@ export async function runClean(items, after) {
   if (!items.length) return;
   const rec = items.filter(c => c.action === 'recycle'), arc = items.filter(c => c.action === 'archive');
   const ok = await confirmBox('Cleanup', h('div', { class: 'sub', style: { fontSize: '14px' } },
-    rec.length ? h('p', {}, `${rec.length} items (${GB(rec.reduce((s, c) => s + c.size, 0))}) will go to the Recycle Bin. You can restore them from there.`) : null,
+    rec.length ? h('p', {}, `${rec.length} items (${GB(rec.reduce((s, c) => s + c.size, 0))}) will go to the Trash. You can restore them from there.`) : null,
     arc.length ? h('p', {}, `${arc.length} old versions (${GB(arc.reduce((s, c) => s + c.size, 0))}) will move to the archive folder and be removed here after the copy is verified.`) : null,
     h('p', { class: 'dim' }, 'Runs in the background; progress appears at the bottom right.')), 'Clean');
   if (!ok) return;
@@ -496,7 +496,7 @@ async function rendersPage(page) {
     live.append(h('div', { class: 'tiles' },
       tile('Render protection', g.running ? h('span', { class: 'green' }, 'on') : h('span', { class: 'muted', title: g.reason }, 'off')),
       tile('Free RAM', g.running ? `${(g.ramAvailMB / 1024).toFixed(1)} GB` : '—'),
-      tile('CPU limit', g.running ? (g.capNow >= 100 ? 'unlimited' : g.capNow + '%') : '—'),
+      tile('Render priority', g.running ? (g.capNow >= 100 && !g.settings?.LowPrio ? 'normal' : g.capNow > 50 ? 'below normal' : 'lowest') : '—'),
       tile('Running', active.filter(r => r.state === 'running').length),
     ));
     // slow every render down at once (and back): frees the computer for a moment without stopping anything
@@ -563,9 +563,9 @@ async function outputsPage(page) {
 
 // ---------- render settings (RenderGuard): presets, a temporary full-power window, and the sliders
 const PRESETS = [
-  ['Full power', 'every core, normal priority', { CapActive: 100, LowPrio: false }],
-  ['Balanced', '90% of the cores, low priority (default)', { CapActive: 90, LowPrio: true }],
-  ['Quiet', 'half of the cores; keeps your computer responsive', { CapActive: 50, LowPrio: true }],
+  ['Full power', 'normal priority', { CapActive: 100, LowPrio: false }],
+  ['Balanced', 'below-normal priority: your apps go first (default)', { CapActive: 90, LowPrio: true }],
+  ['Quiet', 'lowest priority; keeps your Mac responsive', { CapActive: 50, LowPrio: true }],
 ];
 function guardPanel(gs, { full = false } = {}) {
   const box = h('div', { class: 'panel gpanel' });
@@ -580,7 +580,7 @@ function guardPanel(gs, { full = false } = {}) {
   const toggle = (key, label, help) => h('label', { class: 'row', style: { margin: '6px 0', cursor: 'pointer' } },
     h('input', { type: 'checkbox', checked: !!gs[key], onchange: e => save(key, e.target.checked) }), h('span', {}, label), help ? h('span', { class: 'dim', style: { fontSize: '12px' } }, help) : null);
   const cores = navigator.hardwareConcurrency || 12;
-  const pct = v => v >= 100 ? '100% · unlimited' : `${v}% · ≈${(v * cores / 100).toFixed(1)} cores`;
+  const pct = v => v >= 100 ? '100% · normal priority' : v > 50 ? `${v}% · below-normal priority` : `${v}% · lowest priority`;   // macOS: priority tiers, not a share of the cores
   const same = p => Object.entries(p).every(([k, v]) => (typeof v === 'boolean' ? !!gs[k] === v : +gs[k] === v));
   const presets = h('div', { class: 'row', style: { gap: '8px', margin: '2px 0 10px' } }, h('span', { class: 'muted', style: { width: '120px' } }, 'Speed'),
     PRESETS.map(([name, help, p]) => h('button', { class: same(p) ? 'primary' : '', title: help, onclick: async () => { await api('/api/guard/settings', { method: 'POST', body: p }); toast(`Render speed: ${name}`); redraw(); } }, name)));
@@ -591,15 +591,15 @@ function guardPanel(gs, { full = false } = {}) {
     temp ? [h('span', { class: 'accent' }, `Full power until ${hhmm(temp.until)}, then previous settings`), h('button', { onclick: async () => { await api('/api/guard/temp', { method: 'POST', body: { cancel: true } }); toast('Previous settings restored'); redraw(); } }, 'End now')]
       : [h('span', { class: 'dim' }, 'Full power, then automatically restore previous settings:'), [1, 2, 4, 8].map(hr => h('button', { onclick: async () => { const r = await api('/api/guard/temp', { method: 'POST', body: { hours: hr } }); toast(`Full power until ${hhmm(r.until)}`); redraw(); } }, `${hr} h`))]);
   box.append(
-    h('div', { class: 'sub', style: { marginBottom: '8px' } }, 'Render protection is part of VideoHub: renders started from VideoHub get a CPU limit and low priority, and slow down when free RAM runs low.'),
+    h('div', { class: 'sub', style: { marginBottom: '8px' } }, 'Render protection is part of VideoHub: renders started from VideoHub run at low priority, and slow down when free RAM runs low.'),
     presets, tempRow,
     slider('CapActive', 'Render power', 10, 100, 5, pct),
     toggle('LowPrio', 'Run renders at low priority', 'keeps open apps responsive; rendering slows slightly'));
   const more = h('div', {},
     slider('PauseMB', 'Slow down when free RAM reaches', 300, Math.max(4000, Math.round((gs.ramTotalMB || 16384) / 4 / 100) * 100), 100, v => `${(v / 1024).toFixed(1)} GB free`, 'the newest render slows down; the oldest continues'),
-    slider('SlowCapPct', 'Speed in slow mode', 1, 30, 1, v => `${v}% CPU`, 'rendering continues at a lower speed'),
+    slider('SlowCapPct', 'Speed in slow mode', 1, 30, 1, () => 'background mode', 'rendering continues on the efficiency cores (Apple Silicon) at the lowest priority'),
     slider('CriticalMB', 'Critical RAM', 200, 2000, 100, v => `${(v / 1024).toFixed(1)} GB`, 'below this, the oldest render also slows down'),
-    toggle('Startup', 'Start VideoHub with Windows and keep it running', 'opens no window and starts render protection immediately; when disabled, starts when you open VideoHub and exits 2 min after closing the window if no renders are running'));
+    toggle('Startup', 'Start VideoHub when you log in and keep it running', 'opens no window and starts render protection immediately; when disabled, starts when you open VideoHub and exits 2 min after closing the window if no renders are running'));
   if (full) box.append(more);
   else { more.hidden = true; const link = h('button', { class: 'ghost', onclick: () => { more.hidden = !more.hidden; link.textContent = more.hidden ? 'RAM and other settings ▾' : 'Show less ▴'; } }, 'RAM and other settings ▾'); box.append(link, more); }
   return box;
@@ -607,7 +607,7 @@ function guardPanel(gs, { full = false } = {}) {
 
 // ---------- Disk
 async function diskPage(page) {
-  page.append(h('h1', {}, 'Disk'), h('div', { class: 'sub' }, 'See what can be safely removed and why. Deleted files go to the Recycle Bin; old versions go to the archive.'));
+  page.append(h('h1', {}, 'Disk'), h('div', { class: 'sub' }, 'See what can be safely removed and why. Deleted files go to the Trash; old versions go to the archive.'));
   const wait = h('div', { class: 'empty' }, 'Measuring folders… (large projects may take 10–30 s)'); page.append(wait);
   const d = await api('/api/disk'); wait.remove();
   const T = d.totals || {}, parts = [['output', 'Videos', 'var(--green)'], ['chunk', 'Render chunks', 'var(--accent)'], ['oldChunk', 'Old chunks', 'var(--red)'], ['part', 'Part/segment', 'var(--yellow)'], ['profile', 'Chrome profiles', 'var(--red)'], ['snap', 'Check frames', 'var(--blue)'], ['audio', 'Audio', 'var(--violet)'], ['other', 'Code and other files', 'var(--dim)']];
@@ -636,7 +636,7 @@ async function diskPage(page) {
   const rows = (d.projects || []).filter(r => r.deep >= (50 << 20) || r.chunks >= (50 << 20));
   page.append(h('h2', {}, 'Render leftovers · all projects'),
     h('div', { class: 'panel' },
-      h('div', { class: 'sub', style: { marginBottom: '8px' } }, 'Cleanup sends files to the Recycle Bin (old versions to the archive). You can also change individual selections in the list below.'),
+      h('div', { class: 'sub', style: { marginBottom: '8px' } }, 'Cleanup sends files to the Trash (old versions to the archive). You can also change individual selections in the list below.'),
       h('div', { class: 'row' }, h('span', { class: 'muted' }, 'Preset:'), presetBtns, h('span', { class: 'spacer' }), allBtn),
       d.busy?.length ? h('div', { class: 'sub', style: { marginTop: '8px' } }, '⏳ Projects currently excluded: ', d.busy.map(b => `${b.name} (${b.reason})`).join(' · '), '. They will appear in the list when rendering finishes.') : null,
       rows.length ? h('table', { class: 't', style: { marginTop: '10px' } },
@@ -653,7 +653,7 @@ async function diskPage(page) {
     const list = h('div', { class: 'items', hidden: true });
     for (const c of items.sort((a, b) => b.size - a.size)) list.append(h('label', { class: 'item' },
       h('input', { type: 'checkbox', checked: checked.has(c.id), 'data-id': c.id, onchange: e => { e.target.checked ? checked.add(c.id) : checked.delete(c.id); upd(); } }),
-      h('div', {}, h('div', {}, h('b', {}, c.projectName), ' ', h('span', { class: 'ellip muted', title: c.path }, c.path.split('\\').slice(-3).join('\\'))), h('div', { class: 'why' }, c.reason)),
+      h('div', {}, h('div', {}, h('b', {}, c.projectName), ' ', h('span', { class: 'ellip muted', title: c.path }, c.path.split(/[\\/]/).slice(-3).join('/'))), h('div', { class: 'why' }, c.reason)),
       h('div', { class: 'num' }, GB(c.size))));
     const head = h('header', { 'data-rule': rule },
       h('input', { type: 'checkbox', onclick: e => { e.stopPropagation(); const on = e.target.checked; for (const c of items) on ? checked.add(c.id) : checked.delete(c.id); list.querySelectorAll('input').forEach(i => i.checked = on); upd(); } }),
@@ -691,7 +691,7 @@ async function settingsPage(page) {
         h('td', { class: 'num' }, h('button', { class: 'ghost danger', onclick: () => { roots.splice(i, 1); draw(); } }, 'Remove')))))));
   };
   draw();
-  const addIn = h('input', { placeholder: 'C:\\Users\\…\\Desktop\\new-folder', style: { width: '420px' } });
+  const addIn = h('input', { placeholder: '/Users/…/Desktop/new-folder', style: { width: '420px' } });
   const arch = h('input', { value: c.archiveDir, style: { width: '420px' } });
   const par = h('select', {}, [1, 2].map(n => h('option', { value: n, selected: c.maxParallelRenders === n }, n === 1 ? 'One render at a time (recommended)' : `2 renders if ${Math.round(c.secondRenderMinFreeMB / 1024)} GB+ RAM is free`)));
   // the other folders VideoHub writes to or reads from (defaults under Documents\VideoHub)
@@ -708,12 +708,12 @@ async function settingsPage(page) {
   const okRow = (name, ok, text) => [h('div', { class: 'k' }, name), h('div', {}, ok ? h('span', { class: 'green' }, '✓ ') : h('span', { class: 'muted' }, '— '), text)];
   page.append(h('h2', {}, 'Optional parts on this computer'), h('div', { class: 'panel kv' },
     okRow('ffmpeg', I.ffmpeg, I.ffmpeg ? 'found (frame pictures, previews, renders)' : 'not found — install it: winget install -e --id Gyan.FFmpeg'),
-    okRow('Browser for renders', !!I.browser, I.browser || 'no Edge or Chrome found — renders need one'),
-    okRow('Render protection', true, 'built in (CPU limit, low priority, RAM slow mode)'),
+    okRow('Browser for renders', !!I.browser, I.browser || 'no Chrome or Edge found — renders need one (install Google Chrome)'),
+    okRow('Render protection', true, 'built in (low priority, RAM slow mode)'),
     okRow('Ready-made sound effects', I.sfx?.ok, I.sfx?.ok ? 'available' : I.sfx?.why || 'not available')));
   page.append(h('h2', {}, 'Workspace'), h('div', { class: 'sub' }, 'The folder chosen in setup: the default home of every folder below (films, outputs, sounds, thumbnails, archive). Each folder can still be changed on its own here.'),
     h('div', { class: 'row', style: { marginTop: '6px' } }, h('span', { class: 'mono' }, c.workspace || '—')),
-    h('h2', {}, 'Render speed'), h('div', { class: 'sub' }, 'The encoder for films whose render script reads VIDEOHUB_ENCODER (every film made from the template). Automatic uses the graphics card when it can, with the same picture quality as the processor. Saved at once; the render dialog can still pick another one for a single render.'),
+    h('h2', {}, 'Render speed'), h('div', { class: 'sub' }, 'The encoder for films whose render script reads VIDEOHUB_ENCODER (every film made from the template). Automatic uses the hardware encoder of this Mac when it can, with about the same picture quality as the processor. Saved at once; the render dialog can still pick another one for a single render.'),
     h('div', { style: { marginTop: '6px' } }, renderSpeedControl(c)));
   page.append(h('h2', {}, 'Watched folders'), list,
     h('div', { class: 'row', style: { marginTop: '10px' } }, addIn, folderButton(() => addIn.value.trim(), (p) => { if (!roots.some((r) => r.path.toLowerCase() === p.toLowerCase())) roots.push({ path: p, type: 'container', enabled: true }); addIn.value = ''; draw(); toast('Added: click Save to keep your changes'); }, 'Choose a folder to watch', '📂 Choose folder…'), h('button', { onclick: () => { if (addIn.value.trim()) { roots.push({ path: addIn.value.trim(), type: 'container', enabled: true }); addIn.value = ''; draw(); } } }, 'Add')),
@@ -732,9 +732,9 @@ async function settingsPage(page) {
   );
 }
 
-// a "📂" button: Windows' folder window opens on this PC (in front of everything); the chosen folder goes to onPick
+// a "📂" button: the macOS folder chooser opens on this PC (in front of everything); the chosen folder goes to onPick
 export function folderButton(getStart, onPick, title = 'Choose folder', label = '📂 Choose…') {
-  const b = h('button', { type: 'button', class: 'ghost', title: 'Choose folder (opens a Windows dialog)', onclick: async (e) => {
+  const b = h('button', { type: 'button', class: 'ghost', title: 'Choose folder (opens a Finder dialog)', onclick: async (e) => {
     e.preventDefault(); e.stopPropagation();
     const old = b.textContent; b.disabled = true; b.textContent = '⏳ dialog open…';
     try { const r = await api('/api/pick-folder', { method: 'POST', body: { start: getStart() || null, title } }); if (r?.path) onPick(r.path); }

@@ -76,7 +76,7 @@ export const TOOLS = {
     },
   },
   hub_workspace: {
-    description: 'Where this PC keeps its video work: the workspace folder and, inside it, the films folder (make every new film there, one folder per film), the outputs folder (finished renders are collected there by VideoHub; never write there yourself) and the other watched folders. Call it before creating a new film.',
+    description: 'Where this Mac keeps its video work: the workspace folder and, inside it, the films folder (make every new film there, one folder per film), the outputs folder (finished renders are collected there by VideoHub; never write there yourself) and the other watched folders. Call it before creating a new film.',
     schema: {},
     run: async () => {
       const c = await call('GET', '/api/config');
@@ -84,7 +84,7 @@ export const TOOLS = {
       const films = (roots.find(r => r.type === 'container') || {}).path;
       return [
         `Workspace: ${c.workspace}`,
-        films ? `New films go in: ${films}\\<film-name>  (one folder per film; copy templates\\new-film from the VideoHub folder)` : 'No films folder is set: ask the user to add one in VideoHub > Settings > Folders.',
+        films ? `New films go in: ${films}/<film-name>  (one folder per film; copy templates/new-film from the VideoHub folder)` : 'No films folder is set: ask the user to add one in VideoHub > Settings > Folders.',
         `Finished renders are collected in: ${c.outputsDir}  (VideoHub links every render there by day; do not write there)`,
         `Sounds: ${c.soundLibDir}  ·  Thumbnails: ${c.thumbstudio?.globalDir}  ·  Archive: ${c.archiveDir}`,
         roots.length > 1 ? 'Other watched folders: ' + roots.filter(r => r.path !== films).map(r => `${r.path} (${r.type})`).join(', ') : '',
@@ -154,7 +154,7 @@ export const TOOLS = {
   },
 
   hub_render: {
-    description: 'Put a render in VideoHub\'s queue (one render at a time on this computer; CPU/RAM protection on when the agent is installed). Only when the user asked for a render. mode "partial": only the chunks the notes/seconds/chunks touch are rendered again, the film is joined, the previous final\'s sound is put back, and a new version (…_vN.mp4) is saved with the changed ranges. "full": the whole film. "preview": PREVIEW=1 (projects that support it). "command": your own command (cmd) + output file; the user has to approve it in VideoHub before it runs. wait=true waits until it ends (at most ~9 min). Options: workers (parallel workers / Chrome copies for 3D), env.FPS (if the script reads FPS, full only), env.CODEC (3D: x264|nvenc|amf); what a project supports: GET /api/project/<id>/render-options.',
+    description: 'Put a render in VideoHub\'s queue (one render at a time on this computer; CPU/RAM protection on when the agent is installed). Only when the user asked for a render. mode "partial": only the chunks the notes/seconds/chunks touch are rendered again, the film is joined, the previous final\'s sound is put back, and a new version (…_vN.mp4) is saved with the changed ranges. "full": the whole film. "preview": PREVIEW=1 (projects that support it). "command": your own command (cmd) + output file; the user has to approve it in VideoHub before it runs. wait=true waits until it ends (at most ~9 min). Options: workers (parallel workers / Chrome copies for 3D), env.FPS (if the script reads FPS, full only), env.CODEC (3D: auto|vt|x264); what a project supports: GET /api/project/<id>/render-options.',
     schema: {
       project: z.string().optional(),
       mode: z.enum(['partial', 'full', 'preview', 'command']).optional(),
@@ -208,7 +208,7 @@ export const TOOLS = {
     run: async a => {
       const p = await resolve(a.project); const d = await call('GET', `/api/project/${p.id}`);
       if (!d.cleanup.length) return 'Nothing to clean up.';
-      return [`"${p.title}" — ${GB(d.cleanup.reduce((s, c) => s + c.size, 0))} can be cleaned up:`, ...d.cleanup.map(c => `- ${GB(c.size)} ${c.path} — ${c.reason}`), 'Tell the user to approve it on VideoHub\'s Disk page (Recycle Bin / archive). Never delete these yourself.'].join('\n');
+      return [`"${p.title}" — ${GB(d.cleanup.reduce((s, c) => s + c.size, 0))} can be cleaned up:`, ...d.cleanup.map(c => `- ${GB(c.size)} ${c.path} — ${c.reason}`), 'Tell the user to approve it on VideoHub\'s Disk page (Trash / archive). Never delete these yourself.'].join('\n');
     },
   },
 

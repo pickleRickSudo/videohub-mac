@@ -16,7 +16,7 @@
 //   pixels are read straight from the canvas, handed to a Web Worker and sent to this script over a local WebSocket;
 //   ffmpeg gets raw RGBA (lossless, no JPEG). Any other page is captured as PNG screenshots (also lossless).
 //   VIDEOHUB_TRANSPORT=png forces screenshots (the WebSocket server is built in: no package needed). Every frame is a pure function of t, so workers can render in parallel.
-// - Encoder: VIDEOHUB_ENCODER = auto | nvenc | amf | qsv | x264 (auto: the first graphics-card encoder whose test
+// - Encoder: VIDEOHUB_ENCODER = auto | vt | x264 (macOS; nvenc | amf | qsv are Windows-only; auto: VideoToolbox if its test
 //   encode works, else x264). A named encoder that does not work here falls back to x264.
 'use strict';
 const fs = require('fs'), path = require('path'), os = require('os');
@@ -35,16 +35,15 @@ function loadPuppeteer() {
   console.error('puppeteer-core not found: run "npm install" in this folder (or render through VideoHub, which ships it).');
   process.exit(2);
 }
-// the browser: CHROME env, else Edge, else Chrome
+// the browser: CHROME env, else Chrome, else Edge / Chromium / Brave (macOS app bundles, /Applications or ~/Applications)
 function browserPath() {
-  const c = [process.env.CHROME,
-    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-    'C:/Program Files/Google/Chrome/Application/chrome.exe', path.join(os.homedir(), 'AppData/Local/Google/Chrome/Application/chrome.exe')].filter(Boolean);
+  const apps = ['Google Chrome.app/Contents/MacOS/Google Chrome', 'Microsoft Edge.app/Contents/MacOS/Microsoft Edge', 'Chromium.app/Contents/MacOS/Chromium', 'Brave Browser.app/Contents/MacOS/Brave Browser'];
+  const c = [process.env.CHROME, ...apps.flatMap(a => ['/Applications', path.join(os.homedir(), 'Applications')].map(d => path.join(d, a)))].filter(Boolean);
   const f = c.find(x => fs.existsSync(x));
-  if (!f) { console.error('No Edge or Chrome found (set CHROME to a Chromium browser).'); process.exit(2); }
+  if (!f) { console.error('No Chrome or Edge found (set CHROME to a Chromium browser).'); process.exit(2); }
   return f;
 }
-const FFMPEG = process.env.FFMPEG || 'ffmpeg';
+const FFMPEG = process.env.FFMPEG || ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'].find(f => fs.existsSync(f)) || 'ffmpeg';
 
 const PREVIEW = process.env.PREVIEW === '1';
 const FPS = +(process.env.FPS || 30), DUR = +(process.env.DUR || 10), CH = 60, VW = 1920, VH = 1080;
@@ -54,6 +53,8 @@ const OUT = PREVIEW ? path.resolve('render/preview') : path.resolve('render/chun
 
 // ---------- encoders (the same table as VideoHub's server/encoders.js; quality checked against a lossless reference)
 const ENCODER_ARGS = {
+  vt: [['-c:v', 'h264_videotoolbox', '-q:v', '65', '-profile:v', 'high', '-allow_sw', '0', '-realtime', '0'],
+    ['-c:v', 'h264_videotoolbox', '-b:v', '40M', '-maxrate', '80M', '-bufsize', '80M', '-profile:v', 'high', '-allow_sw', '0']],
   nvenc: [['-c:v', 'h264_nvenc', '-preset', 'p7', '-tune', 'hq', '-rc', 'vbr', '-cq', '20', '-b:v', '0', '-maxrate', '250M', '-bufsize', '500M', '-level', '5.2', '-spatial-aq', '1', '-temporal-aq', '1', '-rc-lookahead', '32', '-bf', '3', '-b_ref_mode', 'middle']],
   amf: [['-c:v', 'h264_amf', '-usage', 'transcoding', '-quality', 'quality', '-rc', 'cqp', '-qp_i', '14', '-qp_p', '16', '-qp_b', '18', '-bf', '3'],
     ['-c:v', 'h264_amf', '-usage', 'transcoding', '-quality', 'quality', '-rc', 'cqp', '-qp_i', '14', '-qp_p', '16', '-qp_b', '18']],
@@ -66,7 +67,7 @@ function pickEncoder() {
   const want = String(process.env.VIDEOHUB_ENCODER || 'auto').toLowerCase();
   const works = n => (ENCODER_ARGS[n] || []).find(probe) || null;
   if (want === 'x264' || want === 'lossless') return { name: want, args: ENCODER_ARGS[want][0] };
-  for (const n of want === 'auto' ? ['nvenc', 'amf', 'qsv'] : [want]) { const a = works(n); if (a) return { name: n, args: a }; }
+  for (const n of want === 'auto' ? ['vt'] : [want]) { const a = works(n); if (a) return { name: n, args: a }; }
   if (want !== 'auto') console.log(`encoder ${want} does not work on this PC: using x264`);
   return { name: 'x264', args: ENCODER_ARGS.x264[0] };
 }

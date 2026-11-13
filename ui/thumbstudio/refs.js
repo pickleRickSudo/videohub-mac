@@ -29,7 +29,7 @@ export function openReferencesModal(pid, tid, brief, { onUpdated }) {
   },
     h('div', { style: { fontSize: '24px', marginBottom: '6px' } }, '📷'),
     h('b', {}, 'Upload an image or drag it here'),
-    h('div', { class: 'dim', style: { fontSize: '12px', marginTop: '4px' } }, 'PNG, JPG or WebP (paste from the clipboard with Ctrl+V)')
+    h('div', { class: 'dim', style: { fontSize: '12px', marginTop: '4px' } }, 'PNG, JPG or WebP (paste from the clipboard with ⌘V)')
   );
   content.append(dropZone, fileInput);
 

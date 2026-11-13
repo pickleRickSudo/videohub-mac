@@ -114,7 +114,7 @@ export function renderCatalogPage(page) {
   const typoBox = h('div', { class: 'panel', style: { padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' } });
   container.append(typoBox);
 
-  const sampleFonts = ['Impact', 'Arial Black', 'Segoe UI', 'Bahnschrift', 'Georgia', 'Cambria', 'Consolas'];
+  const sampleFonts = ['Impact', 'Arial Black', 'Helvetica Neue', 'Avenir Next Condensed', 'Georgia', 'Baskerville', 'Menlo'];
   for (const font of sampleFonts) {
     const canvas = document.createElement('canvas');
     canvas.width = 900;

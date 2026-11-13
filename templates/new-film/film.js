@@ -28,14 +28,14 @@
   function opening(t) {
     g.fillStyle = '#101320'; g.fillRect(0, 0, W, H);
     g.globalAlpha = ease(t / 0.8);
-    g.fillStyle = '#f3efe6'; g.font = '800 120px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#f3efe6'; g.font = '800 120px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('Your film starts here', W / 2, H / 2 - (1 - ease(t / 0.8)) * 40);
     g.globalAlpha = 1;
   }
   function ending(t) {
     const s = t - 5;
     g.fillStyle = '#ff7a3d'; g.fillRect(0, 0, W, H);
-    g.fillStyle = '#101320'; g.font = '700 90px "Segoe UI", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#101320'; g.font = '700 90px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('The end', W / 2, H / 2 + Math.sin(s * 2) * 10);
   }
 

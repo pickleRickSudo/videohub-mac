@@ -19,25 +19,25 @@ test('the render script template and its example copy use the same encoder argum
 
 test('pickEncoder: auto takes the first GPU encoder whose probe works, else x264; a named one that fails falls back', async () => {
   const probe = ok => async n => ok.includes(n) ? ENCODER_ARGS[n].at(-1) : null;
-  assert.equal((await pickEncoder('auto', probe(['amf', 'qsv']))).name, 'amf');
-  assert.equal((await pickEncoder('auto', probe(['nvenc', 'amf']))).name, 'nvenc');
+  assert.equal((await pickEncoder('auto', probe(['vt']))).name, 'vt');
+  assert.equal((await pickEncoder('auto', probe(['nvenc', 'amf']))).name, 'x264');   // macOS: auto only tries VideoToolbox
   const none = await pickEncoder('auto', probe([])); assert.equal(none.name, 'x264'); assert.equal(none.why, null); assert.deepEqual(none.args, ENCODER_ARGS.x264[0]);
   const want = await pickEncoder('nvenc', probe(['amf'])); assert.equal(want.name, 'x264'); assert.match(want.why, /nvenc is not available/);
   assert.equal((await pickEncoder('amf', probe(['amf']))).args.at(1), 'h264_amf');
   assert.equal((await pickEncoder('auto', async () => { throw new Error('ffmpeg missing'); })).name, 'x264');   // a probe that throws counts as "no"
-  assert.equal((await pickEncoder('warp9', probe(['qsv']))).name, 'qsv');   // unknown → auto
+  assert.equal((await pickEncoder('warp9', probe(['vt']))).name, 'vt');   // unknown → auto
   let probed = 0; assert.equal((await pickEncoder('x264', async () => { probed++; return []; })).name, 'x264'); assert.equal(probed, 0);
-  assert.deepEqual(PROBE_ORDER, ['nvenc', 'amf', 'qsv']); assert.deepEqual(ENCODERS, ['auto', 'nvenc', 'amf', 'qsv', 'x264']);
+  assert.deepEqual(PROBE_ORDER, ['vt']); assert.deepEqual(ENCODERS, ['auto', 'vt', 'nvenc', 'amf', 'qsv', 'x264']);
 });
 
 test('detectEncoders probes once and caches (memory and file, keyed by the ffmpeg binary)', async () => {
   const dir = new URL('../.test-tmp/encoders-cache/', import.meta.url); fs.mkdirSync(dir, { recursive: true });
   const cacheFile = new URL('cache.json', dir).pathname.replace(/^\/(\w:)/, '$1'); try { fs.renameSync(cacheFile, cacheFile + '.' + Date.now()); } catch { }
-  let calls = 0; const probe = async n => { calls++; return n === 'amf' ? ['x'] : null; }, gpus = async () => ['Some GPU'];
+  let calls = 0; const probe = async n => { calls++; return n === 'vt' ? ['x'] : null; }, gpus = async () => ['Some GPU'];
   const a = await detectEncoders({ ffmpeg: 'fake-ffmpeg-1', cacheFile, probe, gpus });
-  assert.deepEqual(a.available, ['amf', 'x264']); assert.equal(a.best, 'amf'); assert.deepEqual(a.gpus, ['Some GPU']); assert.equal(calls, 3);
-  await detectEncoders({ ffmpeg: 'fake-ffmpeg-1', cacheFile, probe, gpus }); assert.equal(calls, 3);
-  assert.equal(JSON.parse(fs.readFileSync(cacheFile, 'utf8')).v.best, 'amf');
+  assert.deepEqual(a.available, ['vt', 'x264']); assert.equal(a.best, 'vt'); assert.deepEqual(a.gpus, ['Some GPU']); assert.equal(calls, 1);
+  await detectEncoders({ ffmpeg: 'fake-ffmpeg-1', cacheFile, probe, gpus }); assert.equal(calls, 1);
+  assert.equal(JSON.parse(fs.readFileSync(cacheFile, 'utf8')).v.best, 'vt');
   const b = await detectEncoders({ ffmpeg: 'fake-ffmpeg-1', cacheFile, probe: async () => null, gpus, refresh: true }); assert.deepEqual(b.available, ['x264']);
 });
 
@@ -56,9 +56,9 @@ function renderScript(env, works) {
   vm.createContext(ctx); vm.runInContext(head + '\nglobalThis.api = { pickEncoder, encoder, setEnc: e => { ENC = e; } };', ctx);
   return { ...ctx.api, spawned, probed };
 }
-test('render.js: auto probes nvenc, amf, qsv in that order and falls back to x264; raw input with BT.601 conversion', () => {
-  let r = renderScript({}, ['amf']); assert.equal(r.pickEncoder().name, 'amf'); assert.deepEqual(r.probed, ['h264_nvenc', 'h264_amf']);
-  r = renderScript({}, []); assert.equal(r.pickEncoder().name, 'x264'); assert.deepEqual(r.probed, ['h264_nvenc', 'h264_amf', 'h264_amf', 'h264_qsv']);   // amf: with and without B-frames
+test('render.js: auto probes VideoToolbox and falls back to x264; raw input with BT.601 conversion', () => {
+  let r = renderScript({}, ['videotoolbox']); assert.equal(r.pickEncoder().name, 'vt'); assert.deepEqual(r.probed, ['h264_videotoolbox']);
+  r = renderScript({}, []); assert.equal(r.pickEncoder().name, 'x264'); assert.deepEqual(r.probed, ['h264_videotoolbox', 'h264_videotoolbox']);   // vt: constant quality, then bitrate
   r = renderScript({ VIDEOHUB_ENCODER: 'nvenc' }, ['amf']); assert.equal(r.pickEncoder().name, 'x264');
   r = renderScript({ VIDEOHUB_ENCODER: 'x264' }, ['nvenc']); assert.equal(r.pickEncoder().name, 'x264'); assert.equal(r.probed.length, 0);
   r = renderScript({ VIDEOHUB_ENCODER: 'amf' }, ['amf']); r.setEnc(r.pickEncoder()); r.encoder('raw', 'c_000.mp4.tmp.mp4');

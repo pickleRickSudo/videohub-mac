@@ -1,5 +1,5 @@
 // Finds what can go, explains why, and removes it reversibly:
-// deletions go to the Recycle Bin, old versions are moved to the archive folder. Nothing is hard-deleted.
+// deletions go to the Trash, old versions are moved to the archive folder. Nothing is hard-deleted.
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import { spawn } from 'node:child_process';
@@ -9,7 +9,7 @@ import { config } from './config.js';
 import { index } from './scan.js';
 import * as jobs from './jobs.js';
 import { guardState } from './guard.js';
-import { DATA_DIR, TEMP, powershell, fingerprint, processAlive, shortPath, writeJson, now, isInside } from './util.js';
+import { DATA_DIR, TEMP, fingerprint, processAlive, shortPath, writeJson, now, isInside } from './util.js';
 
 const DONE = new Set(['approved', 'published', 'archived', 'done']);
 // Presets for "Clean render leftovers in all projects" (each candidate carries one):
@@ -64,7 +64,7 @@ const cid = s => crypto.createHash('sha1').update(s.toLowerCase()).digest('hex')
 function busyWhy(p) {
   if (jobs.list().some(j => j.project === p.id && (j.state === 'running' || j.state === 'queued'))) return 'a render is in the VideoHub queue';
   try { const g = guardState(); if (g.running && (g.renders || []).some(r => [r.project, r.dir, r.cwd, r.path].some(x => typeof x === 'string' && x && (isInside(x, p.path) || isInside(p.path, x))))) return 'currently rendering'; } catch { }
-  for (const f of ['render\\log.txt', 'render.log', 'render_log.txt']) { try { if (Date.now() - fs.statSync(path.join(p.path, f)).mtimeMs < 10 * 60e3) return 'render log updated in the last 10 minutes'; } catch { } }
+  for (const f of ['render/log.txt', 'render.log', 'render_log.txt']) { try { if (Date.now() - fs.statSync(path.join(p.path, f)).mtimeMs < 10 * 60e3) return 'render log updated in the last 10 minutes'; } catch { } }
   try { if (fs.readdirSync(path.join(p.outDir || p.path, 'render', 'chunks')).some(f => f.endsWith('.tmp.mp4') && Date.now() - fs.statSync(path.join(p.outDir || p.path, 'render', 'chunks', f)).mtimeMs < 10 * 60e3)) return 'unfinished render chunk found (a render may still be running)'; } catch { }
   return null;
 }
@@ -145,7 +145,7 @@ async function computeCandidates() {
         const full = path.join(r, e.name);
         // parts replaced by partial renders and backups of earlier renders: the film is made from render\chunks
         if (e.isDirectory() && /^chunks_(v\d|prev)/i.test(e.name)) {
-          const st = await dirSize(full); if (st.size) add({ rule: 'oldChunks', preset: 'safe', project: p.id, projectName: p.name, path: full, size: st.size, dir: true, action: 'recycle', reason: /^chunks_prev/i.test(e.name) ? 'Backup chunks from the previous render.' : 'Old chunks replaced by a partial render; the film uses render\\chunks.' });
+          const st = await dirSize(full); if (st.size) add({ rule: 'oldChunks', preset: 'safe', project: p.id, projectName: p.name, path: full, size: st.size, dir: true, action: 'recycle', reason: /^chunks_prev/i.test(e.name) ? 'Backup chunks from the previous render.' : 'Old chunks replaced by a partial render; the film uses render/chunks.' });
         }
         if (e.isDirectory() && /^(tmp|profiles)$/i.test(e.name)) {
           const st = await dirSize(full); if (st.size) add({ rule: 'leftover', preset: 'safe', project: p.id, projectName: p.name, path: full, size: st.size, dir: true, action: 'recycle', reason: e.name.toLowerCase() === 'profiles' ? 'Chrome profiles from the render (recreated for each render).' : 'Temporary render files.' });
@@ -163,7 +163,7 @@ async function computeCandidates() {
       const m = await mediaIn(full); if (m.size < 1 << 20) continue;
       const old = Date.now() - m.newest > QA_DAYS * 864e5, what = m.onlyMedia ? 'folder' : `${m.files.length} items, scripts stay`;
       add({ rule: 'qa', preset: old ? 'safe' : 'deep', project: p.id, projectName: p.name, path: full, size: m.size, ...(m.onlyMedia ? { dir: true } : { files: m.files }), action: 'recycle', checked: old,
-        reason: `QA/test frames and clips (${d}\\, ${what}); ${old ? 'older than ' + QA_DAYS + ' days' : 'recent, the film may still be in progress'}. Can be regenerated if needed.` });
+        reason: `QA/test frames and clips (${d}/, ${what}); ${old ? 'older than ' + QA_DAYS + ' days' : 'recent, the film may still be in progress'}. Can be regenerated if needed.` });
     }
     // 4a. preview renders (PREVIEW=1): once a full-quality final is newer they are only leftovers
     {
@@ -190,7 +190,7 @@ async function computeCandidates() {
     }
     // 5. chunks / parts of a finished film (needed only for partial re-renders while still being reviewed)
     if (DONE.has(p.status) && !p.statusAuto && !(p.notesOpen > 0) && newestFinal) {
-      for (const d of ['render\\chunks', 'render\\preview']) {
+      for (const d of ['render/chunks', 'render/preview']) {
         const full = path.join(p.outDir || p.path, d); if (!exists(full)) continue;
         const s = await dirSize(full); if (s.size < 20 << 20) continue;
         add({ rule: 'chunks', preset: 'deep', project: p.id, projectName: p.name, path: full, size: s.size, dir: true, action: 'recycle', checked: !p.statusAuto,
@@ -265,83 +265,38 @@ const units = c => c.files ? c.files.filter(f => isInside(f.path, c.path) && f.p
 async function leftOf(c) { let s = 0; for (const u of units(c)) s += await dirOrFileSize(u.path); return s; }
 const anyLeft = c => units(c).some(u => exists(u.path));
 
-// SHFileOperation error codes (incl. the old DE_* ones) in plain English
+// macOS port: result codes from the Trash step in plain English
 function why(code) {
-  if (code === -1) return 'Operation interrupted.';
-  if (code === -2) return 'Too large for the Recycle Bin; left untouched to avoid permanent deletion.';
-  if (code === -3) return 'The Recycle Bin is disabled or unavailable on this drive; left untouched to avoid permanent deletion.';
-  if ([2, 3, 0x7C, 0x402].includes(code)) return 'Not found.';
-  if ([5, 0x78, 0x10074].includes(code)) return 'Access denied.';
-  if ([32, 33].includes(code)) return 'In use by another program (open file).';
-  if (code === 0x71 || code === 0x72) return 'Source and destination are the same.';
-  return `Windows error code ${code}.`;
+  if (code === -1) return 'Could not move it to the Trash (in use, or no permission); left untouched.';
+  if (code === -4) return 'Timed out while moving to the Trash; left untouched.';
+  return `Trash error code ${code}.`;
 }
 
-// to the Recycle Bin through SHFileOperation with no UI at all (FOF_NOERRORUI: a hidden error dialog used to be able
-// to hang the run), one PowerShell for the whole list, one result line per item as it goes. Items bigger than the
-// Bin of their drive are refused: Windows would delete those permanently without asking.
-function recycleStream(items, onItem) {
-  return new Promise(resolve => {
-    if (!items.length) return resolve();
-    const listFile = path.join(DATA_DIR, `recycle-${Date.now()}.json`);
-    writeJson(listFile, items.map(i => ({ path: i.path, size: i.size || 0 })));
-    const ps = `
-$ErrorActionPreference = 'Stop'
-Add-Type -TypeDefinition @"
-using System; using System.Runtime.InteropServices;
-public static class VhBin {
-  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-  struct OP { public IntPtr hwnd; public uint wFunc; public string pFrom; public string pTo; public ushort fFlags; public bool aborted; public IntPtr maps; public string title; }
-  [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern int SHFileOperation(ref OP op);
-  public static int Recycle(string p) {
-    var op = new OP(); op.wFunc = 3; op.pFrom = p + "\\0\\0"; op.fFlags = (ushort)(0x40 | 0x10 | 0x400 | 0x4 | 0x200);
-    int r = SHFileOperation(ref op); if (r == 0 && op.aborted) r = -1; return r;
+// to the macOS Trash, one item at a time (async: the hub keeps answering), one result per item as it goes. Uses
+// /usr/bin/trash (macOS 15+, keeps "Put Back"), else Finder through AppleScript. Never deletes outright.
+async function recycleStream(items, onItem) {
+  for (const it of items) {
+    const full = path.resolve(it.path);
+    if (!exists(full)) { onItem(it, 0); continue; }
+    const r = await new Promise(res => {
+      let done = false;
+      const c = spawn(fs.existsSync('/usr/bin/trash') ? '/usr/bin/trash' : '/usr/bin/osascript',
+        fs.existsSync('/usr/bin/trash') ? [full] : ['-e', 'on run argv\ntell application "Finder" to delete (POSIX file (item 1 of argv) as alias)\nend run', full]);
+      let err = ''; c.stderr.on('data', d => { err += d; });
+      const t = setTimeout(() => { if (!done) { done = true; try { c.kill(); } catch { } res({ code: -4, err }); } }, 5 * 60e3);
+      c.on('error', e => { if (!done) { done = true; clearTimeout(t); res({ code: -1, err: e.message }); } });
+      c.on('close', () => { if (!done) { done = true; clearTimeout(t); res({ code: exists(full) ? -1 : 0, err }); } });
+    });
+    onItem(it, r.code, r.code ? (r.err.trim().split('\n').pop() || why(r.code)).slice(0, 300) : undefined);
   }
-}
-"@
-$caps = @{}
-foreach ($v in Get-CimInstance Win32_Volume) {
-  if (-not $v.DriveLetter) { continue }
-  $g = [regex]::Match($v.DeviceID, '\\{[^}]+\\}').Value
-  $k = Get-ItemProperty -LiteralPath "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\BitBucket\\Volume\\$g" -ErrorAction SilentlyContinue
-  if ($k) { $caps[$v.DriveLetter.ToUpper()] = @{ max = [int64]$k.MaxCapacity * 1MB; nuke = [int]$k.NukeOnDelete } }
-}
-$items = Get-Content -LiteralPath '${listFile.replace(/'/g, "''")}' -Raw -Encoding UTF8 | ConvertFrom-Json
-$n = 0
-foreach ($i in @($items)) {
-  $c = $caps[$i.path.Substring(0, 2).ToUpper()]
-  if (-not $c -or $c.nuke -eq 1) { $r = -3 } elseif ([int64]$i.size -gt [int64]($c.max * 0.9)) { $r = -2 } else { try { $r = [VhBin]::Recycle($i.path) } catch { $r = -1 } }
-  [Console]::Out.WriteLine(([pscustomobject]@{ n = $n; code = $r } | ConvertTo-Json -Compress)); [Console]::Out.Flush()
-  $n++
-}`;
-    const p = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { windowsHide: true });
-    let buf = '', err = '', seen = 0, timer = null;
-    // a stuck shell operation must not hold the run forever: 5 min without a result line ends it
-    const arm = () => { clearTimeout(timer); timer = setTimeout(() => { try { p.kill(); } catch { } }, 5 * 60e3); };
-    arm();
-    p.stdout.on('data', d => {
-      buf += d; let k;
-      while ((k = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, k).trim(); buf = buf.slice(k + 1);
-        if (!line.startsWith('{')) continue;
-        try { const j = JSON.parse(line); seen = Math.max(seen, j.n + 1); onItem(items[j.n], j.code); arm(); } catch { }
-      }
-    });
-    p.stderr.on('data', d => { err += d; });
-    p.on('close', () => {
-      clearTimeout(timer); try { fs.unlinkSync(listFile); } catch { }
-      for (let i = seen; i < items.length; i++) onItem(items[i], null, (err.trim().split('\n').pop() || 'PowerShell stopped (timeout or error).').slice(0, 300));
-      resolve();
-    });
-  });
 }
 
 // old versions: copy (async, so the hub keeps answering), check, then remove the original
 async function archiveOne(i) {
   const root = config().archiveDir;
-  const rel = shortPath(i.path).replace(/^~\\/, '').replace(/^[A-Za-z]:\\/, '');
+  const rel = shortPath(i.path).replace(/^~\//, '').replace(/^\//, '');
   let dest = path.join(root, rel);
-  for (let k = 2; fs.existsSync(dest); k++) dest = path.join(root, rel.replace(/(\.[^.\\]+)?$/, m => `_${k}${m}`));   // keep the older archived copy
+  for (let k = 2; fs.existsSync(dest); k++) dest = path.join(root, rel.replace(/(\.[^./]+)?$/, m => `_${k}${m}`));   // keep the older archived copy
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await fsp.copyFile(i.path, dest, fs.constants.COPYFILE_EXCL);
   const a = fs.statSync(i.path), b = fs.statSync(dest);
@@ -351,7 +306,7 @@ async function archiveOne(i) {
   return dest;
 }
 
-// project folders to the Recycle Bin (VideoHub's "Delete folder"): same SHFileOperation path, Bin size check, log
+// project folders to the Trash (VideoHub's "Delete folder"): same path as cleanup, logged
 export async function recyclePaths(items) {
   const res = new Map();
   await recycleStream(items, (it, code, err) => { res.set(it.path, code === 0 ? null : (err || why(code))); });
@@ -405,8 +360,7 @@ async function runJob(ids) {
   });
   for (const c of recycleList) {
     const rest = await leftOf(c), freed = Math.max(0, c.size - rest), e = codes.get(c);
-    // Windows says "not found" also when a file inside is held open by another program (seen with a locked Chrome profile)
-    const err = !e ? null : e.code != null && e.code > 0 && rest ? `Could not delete: a file inside may be open in another program (Windows code ${e.code}). Try again after closing that program.` : e.text;
+    const err = !e ? null : e.text;
     if (!rest) { job.freed += c.size; res(c, 'ok', { freed: c.size }); logLine({ action: 'recycle', path: c.path, ok: true, size: c.size }); }
     else { job.freed += freed; res(c, 'error', { freed, left: rest, error: (freed ? `Partially removed: ${Math.round(rest / 1048576)} MB left. ` : '') + (err || 'Still on disk.') }); logLine({ action: 'recycle', path: c.path, ok: false, error: err, left: rest }); }
   }

@@ -1,4 +1,4 @@
-// Thumbnail store: CRUD, paths, security, recycle bin, and route bindings
+// Thumbnail store: CRUD, paths, security, Trash, and route bindings
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -177,7 +177,7 @@ export async function duplicateThumbnail(pid, tid) {
   return { pid, tid: newTid, brief: newBrief };
 }
 
-// Delete a thumbnail folder to Recycle Bin (never hard delete)
+// Delete a thumbnail folder to Trash (never hard delete)
 export async function deleteThumbnail(pid, tid) {
   const { dir } = resolveThumbDir(pid, tid);
   if (!fs.existsSync(dir)) {
@@ -187,7 +187,7 @@ export async function deleteThumbnail(pid, tid) {
   const results = await recyclePaths([{ path: dir }]);
   const ok = results.every(r => r.ok);
   if (!ok) {
-    const err = results.find(r => !r.ok)?.error || 'Could not move to the Recycle Bin';
+    const err = results.find(r => !r.ok)?.error || 'Could not move to the Trash';
     throw Object.assign(new Error(err), { code: 500 });
   }
 
@@ -658,7 +658,7 @@ export async function deleteVariant(pid, tid, vid) {
   const f = path.join(dir, v.file);
   if (isInside(f, dir) && fs.existsSync(f)) {
     const r = await recyclePaths([{ path: f }]);
-    if (!r.every(x => x.ok)) throw Object.assign(new Error(r.find(x => !x.ok)?.error || 'Could not move to the Recycle Bin'), { code: 500 });
+    if (!r.every(x => x.ok)) throw Object.assign(new Error(r.find(x => !x.ok)?.error || 'Could not move to the Trash'), { code: 500 });
   }
   const variants = brief.variants.filter(x => x.id !== vid);
   const b = saveThumbnail(pid, tid, { variants, chosen: brief.chosen === vid ? null : brief.chosen });

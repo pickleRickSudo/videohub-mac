@@ -185,15 +185,15 @@ export async function thumbnailStudioPage(page, ...args) {
           }, '⧉'),
           h('button', {
             class: 'ghost',
-            title: 'Move to Recycle Bin',
+            title: 'Move to Trash',
             style: { padding: '2px 6px', fontSize: '12px', color: 'var(--red)' },
             onclick: async e => {
               e.stopPropagation();
-              const ok = await confirmBox(`Delete "${t.title}"?`, h('p', {}, 'The thumbnail folder will be moved to the Recycle Bin.'));
+              const ok = await confirmBox(`Delete "${t.title}"?`, h('p', {}, 'The thumbnail folder will be moved to the Trash.'));
               if (!ok) return;
               try {
                 await api(`/api/thumbstudio/${t.pid}/${t.id}/delete`, { method: 'POST' });
-                toast('Moved to Recycle Bin');
+                toast('Moved to Trash');
                 refreshList();
               } catch (err) {
                 toast(err.message, true);

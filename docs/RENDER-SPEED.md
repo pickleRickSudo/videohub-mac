@@ -1,5 +1,8 @@
 # Render speed
 
+> **macOS port note.** The measurements below were made on Windows PCs (NVENC / AMF / Quick Sync). On a Mac the hardware encoder is Apple VideoToolbox (`VIDEOHUB_ENCODER=vt`, what `auto` picks): `h264_videotoolbox -q:v 65`, falling back to x264. Its quality against a lossless reference has not been measured here; pick `x264` in Settings → Render speed if you want the reference encoder.
+
+
 What the film render script (`templates/new-film/render.js`, the same file as `examples/hello-film/render.js`) does to
 render fast without losing quality, how to pick the encoder, how to check quality yourself, and what was measured.
 
@@ -30,18 +33,20 @@ Everything VideoHub reads from the script is unchanged: `FPS`, `CH`, `VW`, `VH`,
 `rendered N frames in S s (F fps, encoder E)`.
 
 ## Choosing the encoder
-`VIDEOHUB_ENCODER` = `auto` | `nvenc` | `amf` | `qsv` | `x264` (default `auto`).
-- `auto` tries a tiny test encode with NVIDIA NVENC, then AMD AMF, then Intel Quick Sync, and uses the first that
-  works; otherwise x264 on the processor. A named encoder that does not work on the PC falls back to x264 (and says so).
-- VideoHub passes the choice from setup / **Settings → Render speed** (`render.encoder` in `data\config.json`) to every
+`VIDEOHUB_ENCODER` = `auto` | `vt` | `x264` (default `auto`; `nvenc` | `amf` | `qsv` are Windows-only and fall back to x264 on a Mac).
+- `auto` tries a tiny test encode with Apple VideoToolbox (`vt`, `h264_videotoolbox`, constant quality `-q:v 65`) and uses it
+  if it works; otherwise x264 on the processor. (On Windows: NVENC, then AMF, then Quick Sync.) A named encoder that does
+  not work on the Mac falls back to x264 (and says so).
+- VideoHub passes the choice from setup / **Settings → Render speed** (`render.encoder` in `data/config.json`) to every
   render job, unless the job sets its own (the render dialog's *Encoder*). Scripts that ignore the variable are not
-  affected. `GET /api/encoders` (and `node scripts\init-config.mjs --detect`) shows what this PC can use; the result is
-  cached in `data\encoders.json` (`?refresh=1` probes again, e.g. after a driver update).
+  affected. `GET /api/encoders` (and `node scripts/init-config.mjs --detect`) shows what this Mac can use; the result is
+  cached in `data/encoders.json` (`?refresh=1` probes again, e.g. after a driver update).
 - `lossless` (libx264rgb, qp 0) exists for checks only: huge files.
 
 | Encoder | Arguments | Status |
 |---|---|---|
 | x264 | `-c:v libx264 -preset veryfast -crf 16` | unchanged from before |
+| VideoToolbox (`vt`) | `-c:v h264_videotoolbox -q:v 65 -profile:v high -allow_sw 0 -realtime 0` (fallback: `-b:v 40M -maxrate 80M -bufsize 80M`) | **verified on Apple Silicon** (macOS port) |
 | AMF | `-c:v h264_amf -usage transcoding -quality quality -rc cqp -qp_i 14 -qp_p 16 -qp_b 18 -bf 3` (without `-bf 3` when the card rejects it) | **measured** (below) |
 | NVENC | `-c:v h264_nvenc -preset p7 -tune hq -rc vbr -cq 20 -b:v 0 -maxrate 250M -bufsize 500M -level 5.2 -spatial-aq 1 -temporal-aq 1 -rc-lookahead 32 -bf 3 -b_ref_mode middle` | **unverified here**: measured on another PC (VMAF 94.48 vs x264 medium crf 15 at 94.25, ~25 % smaller); without `-level 5.2` and a high maxrate NVENC hit a ~40 Mbit/s ceiling on grainy 1080p60 |
 | QSV | `-c:v h264_qsv -preset veryslow -global_quality 18 -look_ahead 1` | **unverified**: a starting point, never measured |

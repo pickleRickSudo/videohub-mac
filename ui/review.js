@@ -42,12 +42,12 @@ const SPEEDS = [0.1, 0.25, 0.5, 1, 1.5, 2];
 const HELP = [
   ['Click the video', 'pauses and adds a numbered point there; type a note, Enter → saves it and resumes playback'], ['Click a point', 'opens that note'],
   ['Space / K', 'play / pause'], ['← / →', '1 frame back / forward (hold to repeat)'], ['Shift + ← / →', '5 s back / forward'], ['J / K / L', 'rewind · stop · fast forward (press again: 2× 4× 8×)'], ['[ / ]', 'speed: slower / faster'], ['Home / End', 'start / end'],
-  ['I / O', 'range: start / end (this frame)'], ['Shift + I / O', 'go to range start / end'], ['\\', 'loop the range'], ['Ctrl+L', 'loop'], ['◆ (on the timeline)', 'range start / end; click to go to that frame'], [', / .', 'previous / next note'], ['N', 'new note on this frame'], ['G', 'go to time / frame (1:23.4 · 83.4 · k1234 · +2 · −10f)'],
+  ['I / O', 'range: start / end (this frame)'], ['Shift + I / O', 'go to range start / end'], ['\\', 'loop the range'], ['⌘L', 'loop'], ['◆ (on the timeline)', 'range start / end; click to go to that frame'], [', / .', 'previous / next note'], ['N', 'new note on this frame'], ['G', 'go to time / frame (1:23.4 · 83.4 · k1234 · +2 · −10f)'],
   ['Z / Shift+Z', 'timeline: zoom to range / fit'],
   ['M / S (in the row header)', 'mute / solo the channel (playback only; renders are unaffected)'], ['% (in the row header)', 'level: drag ±1% (Shift: fine) · scroll ±5% · double-click: value in the film'],
   ['Alt + ← / →', 'move the selected sound by 1 frame (Shift: 10 frames)'], ['Delete', 'delete the selected sound (click the timeline first)'], ['Alt + drag', 'drag a copy of the added sound'],
-  ['V P A R E T M X', 'cursor, pen, arrow, box, circle, text, marker, eraser'], ['Ctrl+Z / Ctrl+Y', 'undo / redo (newest change first: drawing, sound, scene, 2D)'], ['Esc', 'return to cursor · close an empty draft (Cancel discards a note with drawings)'],
-  ['+ / − / 0 / 1', 'zoom in / zoom out / fit / 100%'], ['Space + drag', 'pan while zoomed in'], ['Ctrl + scroll', 'zoom the video or timeline (scrolling the ruler also zooms)'], ['F', 'fullscreen'], ['U', 'mute / unmute'], ['C', 'show narration text below the video'], ['Y / B', 'during a fix check: approve / before ⇄ after'], ['? or H', 'this list'],
+  ['V P A R E T M X', 'cursor, pen, arrow, box, circle, text, marker, eraser'], ['⌘Z / ⌘⇧Z', 'undo / redo (newest change first: drawing, sound, scene, 2D)'], ['Esc', 'return to cursor · close an empty draft (Cancel discards a note with drawings)'],
+  ['+ / − / 0 / 1', 'zoom in / zoom out / fit / 100%'], ['Space + drag', 'pan while zoomed in'], ['Ctrl + scroll / pinch', 'zoom the video or timeline (scrolling the ruler also zooms)'], ['F', 'fullscreen'], ['U', 'mute / unmute'], ['C', 'show narration text below the video'], ['Y / B', 'during a fix check: approve / before ⇄ after'], ['? or H', 'this list'],
 ];
 
 export async function reviewPage(page, id, relArg = '') {
@@ -149,7 +149,7 @@ export async function reviewPage(page, id, relArg = '') {
   const changedBtn = h('button', { hidden: true, onclick: () => playChanged() }, 'Watch only the changes');
   const proxyPill = h('span', { class: 'pill', title: 'Lightweight review copy for smooth frame stepping' }, '…');
   const helpBtn = h('button', { class: 'ghost', title: 'How to use, all keyboard shortcuts (?)', onclick: () => toggleHelp() }, '❔ Help');
-  const folderBtn = h('button', { class: 'ghost', title: 'Open project folder in Explorer: ' + p.path, onclick: () => openFolder(id) }, '📂 Folder');
+  const folderBtn = h('button', { class: 'ghost', title: 'Open project folder in Finder: ' + p.path, onclick: () => openFolder(id) }, '📂 Folder');
   const liveRefreshBtn = liveMode ? h('button', { class: 'ghost', title: 'Find the current page again and reload the code', onclick: async () => {
     try { const fresh = await api('/api/project/' + id + '/live'); if (fresh.ok) liveSrc.reload(fresh); else toast(fresh.reason, true); }
     catch (e) { toast(e.message, true); }
@@ -191,8 +191,8 @@ export async function reviewPage(page, id, relArg = '') {
     h('div', { class: 'tsep' }),
     styleBtn,
     h('div', { class: 'tsep' }),
-    h('button', { class: 'tb', title: 'Undo (Ctrl+Z): newest change (drawing, sound, scene, 2D)', onclick: () => routeUndo() }, svg('undo'), h('span', { class: 'tl' }, 'Undo')),
-    h('button', { class: 'tb', title: 'Redo (Ctrl+Y)', onclick: () => routeRedo() }, svg('redo'), h('span', { class: 'tl' }, 'Redo')),
+    h('button', { class: 'tb', title: 'Undo (⌘Z): newest change (drawing, sound, scene, 2D)', onclick: () => routeUndo() }, svg('undo'), h('span', { class: 'tl' }, 'Undo')),
+    h('button', { class: 'tb', title: 'Redo (⌘⇧Z)', onclick: () => routeRedo() }, svg('redo'), h('span', { class: 'tl' }, 'Redo')),
   );
   // picture zoom: a small overlay in the stage's bottom-right corner
   const zoomPct = h('span', { class: 'zpct', hidden: true });
@@ -597,7 +597,7 @@ export async function reviewPage(page, id, relArg = '') {
       if (n.id === S.selected && !near && Math.abs(t - at) > 2) continue;
       const sh = numbered(n.drawing || [], n.id); paint(octx, sh, W, H, near ? 0.95 : 0.4);
       const b = sh.length ? bbox(sh) : [0.02, 0.04];
-      octx.font = `600 ${Math.max(13, W * 0.013)}px Segoe UI`; const txt = `#${n.id} ${n.text.slice(0, 42)}`, tw = octx.measureText(txt).width;
+      octx.font = `600 ${Math.max(13, W * 0.013)}px system-ui, sans-serif`; const txt = `#${n.id} ${n.text.slice(0, 42)}`, tw = octx.measureText(txt).width;
       const lh = Math.max(22, W * 0.02), onlyPin = sh.length && sh.every(x => x.type === 'pin'), pr = pinR(W);
       // a point note: label beside the marker head; anything else: above the drawing
       const x = Math.min(W - tw - 20, b[0] * W + (onlyPin ? pr * 1.4 : 0)), y = Math.max(4, onlyPin ? b[1] * H - pr * PIN_HEAD - lh / 2 : b[1] * H - 30);
@@ -935,7 +935,7 @@ export async function reviewPage(page, id, relArg = '') {
   // P4: the sound library at the top of the Sounds tab (▶ listen, + at the playhead, drag onto the timeline)
   const library = createLibrary({ onAdd: item => soundEd?.dropAdd({ item, t: nowT() }), onFile: () => soundEd?.pickFile() });
   soundsHost.prepend(library.el);
-  // files dragged from Explorer and dropped anywhere but the timeline would make the window open the file
+  // files dragged from Finder and dropped anywhere but the timeline would make the window open the file
   const dropGuard = e => { if (![...(e.dataTransfer?.types || [])].includes('Files') || e.target?.closest?.('.tl2-body')) return; e.preventDefault(); if (e.type === 'dragover') e.dataTransfer.dropEffect = 'none'; else toast('Drop the sound file onto the timeline'); };
   document.addEventListener('dragover', dropGuard); document.addEventListener('drop', dropGuard);
   setTimeout(() => Promise.all([api(`/api/project/${id}/layers`), api(`/api/project/${id}/sound-info`).catch(() => null), api(`/api/project/${id}/tweaks`).catch(() => ({}))]).then(async ([L, info, tw]) => {
@@ -1013,13 +1013,13 @@ export async function reviewPage(page, id, relArg = '') {
       if (k === 'Escape') { endTour(); return; }
     }
     if (!e.ctrlKey && lk === 'c' && trData) { toggleCaptions(); return; }
-    if (e.ctrlKey && !e.altKey && lk === 'z') { e.preventDefault(); e.shiftKey ? routeRedo() : routeUndo(); return; }
-    if (e.ctrlKey && !e.altKey && lk === 'y') { e.preventDefault(); routeRedo(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && lk === 'z') { e.preventDefault(); e.shiftKey ? routeRedo() : routeUndo(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && lk === 'y') { e.preventDefault(); routeRedo(); return; }
     // Turkish Q types [ ] \ with AltGr, which Chrome reports as Ctrl+Alt: these run before the modifier check below
     const altGr = e.getModifierState?.('AltGraph') || (e.ctrlKey && e.altKey), plain = !e.ctrlKey && !e.altKey && !e.metaKey;
     if ((k === '[' || k === ']') && (plain || altGr)) { e.preventDefault(); speedStep(k === ']' ? 1 : -1); return; }
     if (k === '\\' && (plain || altGr)) { e.preventDefault(); toggleLoop(); return; }
-    if (e.ctrlKey && !e.altKey && !e.metaKey && lk === 'l') { e.preventDefault(); toggleLoop(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && lk === 'l') { e.preventDefault(); toggleLoop(); return; }
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     if (k === ' ') {
       e.preventDefault();

@@ -115,7 +115,7 @@ export async function upload(p, { name, data }) {
   return { src: t.src, name: String(name).replace(/\.[^.]+$/, ''), dur: await duration(t.abs) };
 }
 
-// a big file from the user's disk (drag from Explorer / file picker > 35 MB): raw body streamed to vhaudio/, 500 MB cap
+// a big file from the user's disk (drag from Finder / file picker > 35 MB): raw body streamed to vhaudio/, 500 MB cap
 const UP_MAX = 500 * 1024 * 1024;
 async function uploadStream(p, req, name, size) {
   const ext = (String(name || '').match(AUDIO_RE) || [])[0];

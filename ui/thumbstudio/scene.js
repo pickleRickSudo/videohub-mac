@@ -293,7 +293,7 @@ function drawTextBlock(ctx, layer, x, y, w, h, isExport, clean = false) {
   let fontSize = Math.max(14, Math.round((layer.size ?? 0.12) * ctx.canvas.height));
   // layer.font is a text preset id or a font name
   const fontFamily = TEXT_PRESETS.find(p => p.id === layer.font)?.font || layer.font || 'Impact';
-  ctx.font = `${fontFamily === 'Segoe UI' ? 900 : 'bold'} ${fontSize}px "${fontFamily}", "Arial Black", "Segoe UI", sans-serif`;
+  ctx.font = `${fontFamily === 'Helvetica Neue' ? 900 : 'bold'} ${fontSize}px "${fontFamily}", "Arial Black", system-ui, "Segoe UI", sans-serif`;
   ctx.textAlign = layer.align || 'center';
   ctx.textBaseline = 'middle';
 
@@ -302,7 +302,7 @@ function drawTextBlock(ctx, layer, x, y, w, h, isExport, clean = false) {
   const widest0 = Math.max(...lines.map(l => ctx.measureText(l).width), 1);
   if (widest0 > w * 0.98 && w > 10) {
     fontSize = Math.max(10, Math.floor(fontSize * (w * 0.98) / widest0));
-    ctx.font = `${fontFamily === 'Segoe UI' ? 900 : 'bold'} ${fontSize}px "${fontFamily}", "Arial Black", "Segoe UI", sans-serif`;
+    ctx.font = `${fontFamily === 'Helvetica Neue' ? 900 : 'bold'} ${fontSize}px "${fontFamily}", "Arial Black", system-ui, "Segoe UI", sans-serif`;
   }
   const lineHeight = fontSize * (layer.lineHeight || 1.15);
   const totalH = lines.length * lineHeight;
@@ -464,7 +464,7 @@ function drawShortsGuide(ctx, W, H) {
   ctx.setLineDash([6, 4]);
   const r = [W * 0.84, H * 0.42, W * 0.16, H * 0.46], b = [0, H * 0.8, W * 0.84, H * 0.2];
   for (const [x, y, w, h] of [r, b]) { ctx.fillRect(x, y, w, h); ctx.strokeRect(x, y, w, h); }
-  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `${Math.round(H * 0.013)}px "Segoe UI", sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `${Math.round(H * 0.013)}px system-ui, "Segoe UI", sans-serif`;
   ctx.fillText('Shorts interface', b[0] + 12, b[1] + 22);
   ctx.restore();
 }
@@ -588,7 +588,7 @@ export function drawFinal(ctx, brief, opts = {}) {
     ctx.drawImage(img, dx, dy, dw, dh);
     ctx.filter = 'none';
   } else if (!opts.isExport) {
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '22px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = '22px system-ui, "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(v ? 'Loading image…' : 'Choose a variant for the final image from the strip below', W / 2, H / 2);
   }
   if (fe.vignette > 0) {

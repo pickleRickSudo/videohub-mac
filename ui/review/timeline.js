@@ -15,7 +15,7 @@ import { buildRows, tickSpec, fmtTick, clipLen, assignLane, findDragSnap, snapEd
 
 const STATUS_COLOR = { 'open': '#e6c14d', claude: '#f08a3c', 'fixed': '#46c480', 'approved': '#3a7d58', 'reopened': '#e85454' };
 const RULER = 24, PLAY = '#ff5c6c', ROWS_KEY = 'vh-tl-rows';
-const HINT = 'Ctrl+wheel: zoom · Shift+wheel: pan · wheel on ruler: zoom · double-click: whole film';
+const HINT = 'Pinch or Ctrl+wheel: zoom · Shift+wheel: pan · wheel on ruler: zoom · double-click: whole film';
 // scene lane colours (cycled); a scene's set name keeps its colour when the film comes back to it
 const SCENE_COLORS = ['#3d5a8c', '#7a4f8c', '#3d7a63', '#8c6a3d', '#8c3d4f', '#3d7a85', '#6a7a3d', '#5a4f8c'];
 const mmss = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = Math.floor(s % 60); return `${m}:${String(r).padStart(2, '0')}`; };
@@ -129,7 +129,7 @@ export function createTimeline(ctx) {
     const T = tickSpec(dur(), p, fps);
     rg.fillStyle = '#4a4d58';
     if (T.minor < T.major && T.minor * p >= 8) for (let i = Math.ceil(a / T.minor), n = 0; i * T.minor <= b && n < 4000; i++, n++) rg.fillRect(Math.round(tx(i * T.minor)), RULER - 5, 1, 5);
-    rg.fillStyle = '#8c8f9c'; rg.font = '10px Segoe UI'; rg.textBaseline = 'top';
+    rg.fillStyle = '#8c8f9c'; rg.font = '10px system-ui, sans-serif'; rg.textBaseline = 'top';
     for (let i = Math.ceil(a / T.major - 1e-9), n = 0; i * T.major <= b + 1e-9 && n < 1000; i++, n++) {
       const t = i * T.major, x = Math.round(tx(t)); rg.fillRect(x, RULER - 10, 1, 10); rg.fillText(fmtTick(t, fps, T.frames), x + 3, 2);
     }
@@ -161,11 +161,11 @@ export function createTimeline(ctx) {
     for (const k of keys()) { g.fillStyle = 'rgba(255,216,61,.35)'; g.fillRect(k.x - 0.5, 0, 1, H); }
     // the snap guide of a clip drag
     if (clipDrag?.moved && clipDrag.guide != null) { g.fillStyle = '#25d0c2'; g.fillRect(Math.round(tx(clipDrag.guide)), 0, 1, H); }
-    // a sound being dragged in from the library / Explorer: where it will land
+    // a sound being dragged in from the library / Finder: where it will land
     if (dropAt) {
       const x = Math.round(tx(dropAt.t)), r = dropAt.row, cy = r ? r.y + 2 : 2;
       g.fillStyle = '#25d0c2'; g.fillRect(x, 0, 1, H);
-      g.font = '11px Segoe UI'; g.textBaseline = 'top'; const tw = g.measureText(dropAt.label).width + 10, cx = Math.min(x + 4, w - tw - 2);
+      g.font = '11px system-ui, sans-serif'; g.textBaseline = 'top'; const tw = g.measureText(dropAt.label).width + 10, cx = Math.min(x + 4, w - tw - 2);
       g.fillRect(cx, cy, tw, 16); g.fillStyle = '#06201d'; g.fillText(dropAt.label, cx + 5, cy + 2);
     }
     // playhead
@@ -198,7 +198,7 @@ export function createTimeline(ctx) {
   function drawScenes(r, a, b, now) {
     const w = W(), y0 = r.y, hh = r.h;
     g.fillStyle = '#101116'; g.fillRect(0, y0, w, hh);
-    g.font = `600 ${hh < 18 ? 9 : 10.5}px Segoe UI`; g.textBaseline = 'middle';
+    g.font = `600 ${hh < 18 ? 9 : 10.5}px system-ui, sans-serif`; g.textBaseline = 'middle';
     scenes.forEach((sc, i) => {
       const x0 = tx(sc.t0), x1 = tx(sc.t1); if (x1 < 0 || x0 > w) return;
       const cur = now >= sc.t0 && now < sc.t1, sel = selScene === i;
@@ -225,7 +225,7 @@ export function createTimeline(ctx) {
     g.fillStyle = '#121318'; g.fillRect(0, y0, w, hh);
     for (const n of ctx.notes()) if (n.t2 != null) { const x = tx(n.t); g.fillStyle = STATUS_COLOR[n.status] || '#e6c14d'; g.globalAlpha = .55; g.fillRect(x, y0 + hh - 5, Math.max(3, tx(n.t2) - x), 3); g.globalAlpha = 1; }
     groups = noteGroups();
-    g.font = `600 ${hh < 18 ? 8.5 : 10}px Segoe UI`; g.textBaseline = 'middle'; g.textAlign = 'center';
+    g.font = `600 ${hh < 18 ? 8.5 : 10}px system-ui, sans-serif`; g.textBaseline = 'middle'; g.textAlign = 'center';
     for (const gr of groups) {
       const hasSel = gr.notes.some(n => n.id === sel), c = STATUS_COLOR[gr.notes[0].status] || '#e6c14d', cy = y0 + hh / 2 - 1;
       if (gr.notes.length === 1) { g.beginPath(); g.arc(gr.x, cy, hasSel ? rad + 1 : rad, 0, Math.PI * 2); g.fillStyle = c; g.fill(); }
@@ -238,7 +238,7 @@ export function createTimeline(ctx) {
   function drawText(r, a, b, now) {
     const w = W(), y0 = r.y, hh = r.h;
     g.fillStyle = '#121318'; g.fillRect(0, y0, w, hh);
-    g.font = `${hh < 18 ? 9 : 11}px Segoe UI`; g.textBaseline = 'middle';
+    g.font = `${hh < 18 ? 9 : 11}px system-ui, sans-serif`; g.textBaseline = 'middle';
     textItems().forEach(([s, e, txt], i) => {
       const x0 = tx(s), x1 = tx(e); if (x1 < 0 || x0 > w) return;
       const cur = now >= s && now < e;
@@ -251,11 +251,11 @@ export function createTimeline(ctx) {
     const w = W(), y0 = r.y, hh = r.h;
     g.globalAlpha = dim ? 0.28 : 1;
     if (r.kind === 'layer') {
-      if (r.layer?.placeholder) { g.fillStyle = '#5c5f69'; g.font = '10px Segoe UI'; g.textBaseline = 'middle'; g.fillText('no separate audio file · use "Apply to film" to hear it', 6, y0 + hh / 2); }
+      if (r.layer?.placeholder) { g.fillStyle = '#5c5f69'; g.font = '10px system-ui, sans-serif'; g.textBaseline = 'middle'; g.fillText('no separate audio file · use "Apply to film" to hear it', 6, y0 + hh / 2); }
       else wave(r.id, r, r.color, layerImg[r.id]);
     }
     if (r.cues && cues) {
-      g.fillStyle = '#f08a3c'; g.font = '9.5px Segoe UI'; g.textBaseline = 'middle';
+      g.fillStyle = '#f08a3c'; g.font = '9.5px system-ui, sans-serif'; g.textBaseline = 'middle';
       const named = pps() > 35 && hh >= 18; let lastX = -99;
       for (const c of cues) { const x = tx(c.t); if (x < -2 || x > w + 2) continue; g.fillRect(x, y0 + 2, 1.5, hh - 4); if (named && x - lastX > 48) { g.fillText(c.name, x + 3, y0 + hh / 2); lastX = x; } }
     }
@@ -265,7 +265,7 @@ export function createTimeline(ctx) {
   const bandSpan = e => (bandDrag && bandDrag.shot === e.shot ? [bandDrag.t0, bandDrag.t1] : [e.t0, e.t1]);
   function drawBands(r) {
     const w = W(), y = r.y, hh = r.h, p = pps();
-    g.font = '10px Segoe UI'; g.textBaseline = 'top';
+    g.font = '10px system-ui, sans-serif'; g.textBaseline = 'top';
     for (const e of bands) {
       const [t0, t1] = bandSpan(e), x0 = tx(t0), x1 = tx(t1); if (x1 < 0 || x0 > w) continue;
       const fw = Math.max(1, (e.fade > 0 ? e.fade : 0.12) * p);
@@ -376,7 +376,7 @@ export function createTimeline(ctx) {
           g.fillStyle = hover === k ? '#ffd83d' : '#1b1c22'; g.fillRect(F[k].x, F[k].y, FADE, FADE);
           g.strokeStyle = '#ffd83d'; g.lineWidth = 1; g.strokeRect(F[k].x + 0.5, F[k].y + 0.5, FADE - 1, FADE - 1);
           const v = k === 'fin' ? fi : fo;
-          if (v > 0 && bh >= 14) { g.fillStyle = '#ffd83d'; g.font = '600 9px Segoe UI'; g.textAlign = k === 'fin' ? 'left' : 'right'; g.fillText(v.toFixed(2) + 's', k === 'fin' ? F[k].x + FADE + 3 : F[k].x - 3, top + FADE / 2 + 1); g.textAlign = 'left'; g.font = '600 9.5px Segoe UI'; }
+          if (v > 0 && bh >= 14) { g.fillStyle = '#ffd83d'; g.font = '600 9px system-ui, sans-serif'; g.textAlign = k === 'fin' ? 'left' : 'right'; g.fillText(v.toFixed(2) + 's', k === 'fin' ? F[k].x + FADE + 3 : F[k].x - 3, top + FADE / 2 + 1); g.textAlign = 'left'; g.font = '600 9.5px system-ui, sans-serif'; }
         }
       }
     }
@@ -386,7 +386,7 @@ export function createTimeline(ctx) {
     const w = W(), lh = r.h / r.lanes;
     g.fillStyle = r.clipKind === 'music' ? '#121722' : '#17140f'; g.fillRect(0, r.y, w, r.h);
     for (let i = 1; i < r.lanes; i++) { g.fillStyle = 'rgba(255,255,255,.05)'; g.fillRect(0, r.y + i * lh, w, 1); }
-    g.font = '600 9.5px Segoe UI'; g.textBaseline = 'middle';
+    g.font = '600 9.5px system-ui, sans-serif'; g.textBaseline = 'middle';
     const D = clipDrag && clipDrag.moved ? clipDrag : null;
     for (const c of clips || []) {
       if (kindOf(c) !== r.clipKind) continue;
@@ -602,7 +602,7 @@ export function createTimeline(ctx) {
   });
   cv.addEventListener('pointercancel', () => { bandDrag = null; endClipDrag(false); dragging = null; draw(); });
 
-  // ---- drop a sound from the library (application/x-vh-sound) or Explorer (Files) onto the rows (P4)
+  // ---- drop a sound from the library (application/x-vh-sound) or Finder (Files) onto the rows (P4)
   const canDrop = e => [...(e.dataTransfer?.types || [])].some(t => t === 'application/x-vh-sound' || t === 'Files');
   function dropTarget(e) {
     const R = cv.getBoundingClientRect(), x = e.clientX - R.left, y = e.clientY - R.top, r = rowAt(y);

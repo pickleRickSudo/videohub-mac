@@ -183,7 +183,7 @@ test('selecting or deselecting without a drag creates no save or undo entry', as
   h.pointer('pointerdown', 384, 252); h.pointer('pointerup', 384, 252);
   h.pointer('pointerdown', 1000, 600); h.pointer('pointerup', 1000, 600);
   assert.equal(h.timers.size, 0);
-  assert.equal(h.button('Undo (Ctrl+Z)').disabled, true);
+  assert.equal(h.button('Undo (⌘Z)').disabled, true);
   assert.equal(h.requests.some(([, options]) => options.method === 'PUT'), false);
   h.dispose();
 });

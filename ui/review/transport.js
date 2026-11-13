@@ -107,7 +107,7 @@ export function createTransport(ctx) {
   const rInfo = el('button', { class: 'rinfo', 'data-pri': 8, title: 'Click to enter frame numbers', onclick: () => editRange() });
   const rA = el('input', { class: 'fin', inputmode: 'numeric', title: 'start frame (or 1:02.5)' }), rB = el('input', { class: 'fin', inputmode: 'numeric', title: 'end frame (or 1:04)' });
   const rEdit = el('span', { class: 'redit', 'data-pri': 8, hidden: true }, 'frame', rA, '→', rB, bt('OK', 'Apply range (Enter)', () => applyRange(), null));
-  const rLoop = bt('⟲', 'Loop the range (\\ · Ctrl+L)', () => ctx.toggleLoop(), 7);
+  const rLoop = bt('⟲', 'Loop the range (\\ · ⌘L)', () => ctx.toggleLoop(), 7);
   const rNote = bt('+ Range note', 'Add a note for the selected range (N)', () => ctx.noteForRange(), 6, 'tbtn rnote');
   const rClear = bt('×', 'Clear the range', () => ctx.clearRange(), 7, 'tbtn ghost');
   // the range items are separate row children, so a narrow bar drops the least needed ones first (not the whole group)
@@ -188,7 +188,7 @@ export function createTransport(ctx) {
   function syncZoom() {
     const d = ctx.dur(); zSlider.disabled = !(d > 2);
     if (document.activeElement !== zSlider) zSlider.value = span2v();
-    zSlider.title = V.label() + ' · Ctrl+wheel also zooms';
+    zSlider.title = V.label() + ' · pinch or Ctrl+wheel also zooms';
     zPin.classList.toggle('on', V.followOn());
     zPin.title = (V.followOn() ? 'Follow on' : 'Follow off') + ': when zoomed in, advance the view as the playhead reaches the edge';
   }

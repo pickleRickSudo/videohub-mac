@@ -1,17 +1,17 @@
 // The global outputs folder (config.outputsDir, default Documents\VideoHub\outputs): every finished render's MP4 in one
 // place, named "2026-11-03 My film v2.mp4", so nobody has to dig through project folders.
-// Each file is an NTFS hard link to the render (the same data under a second name: no extra disk space; deleting either
+// Each file is an hard link (APFS) to the render (the same data under a second name: no extra disk space; deleting either
 // name keeps the other). Only when a link is impossible (another drive) is it a copy. Index: data/ciktilar.json.
 //   linkOutput(file, {title, v, kind})  a new render (jobs.js register: queue + hub_register_version)
 //   sync()                              after every scan: each project's newest final (the first run fills the folder)
-//   afterClean(results)                 the janitor removed renders: their links go to the Recycle Bin too, or the disk
+//   afterClean(results)                 the janitor removed renders: their links go to the Trash too, or the disk
 //                                       space would never come back (the data stays in the Bin / archive)
 // The folder is outside every scan root and the scan skips it, so it is never a project or a duplicate.
-// Every video goes into a folder per day, <outputs>\2026-11-08\…;
+// Every video goes into a folder per day, <outputs>/2026-11-08/…;
 // videos left in the top folder by older versions are moved into their day's folder once (tidy, on the first sync).
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { openInFinder } from './platform.js';
 import { index } from './scan.js';
 import { recyclePaths } from './janitor.js';
 import { vhDir } from './notes.js';
@@ -95,7 +95,7 @@ export function sync() {
   return n;
 }
 
-// renders the janitor just recycled or archived: their links follow to the Recycle Bin (never deleted outright)
+// renders the janitor just recycled or archived: their links follow to the Trash (never deleted outright)
 export async function afterClean(results) {
   const gone = (results || []).filter((r) => r.status === 'ok' && r.path).map((r) => r.path);
   if (!gone.length) return 0;
@@ -127,7 +127,7 @@ export function routes(route) {
   route('GET', '/api/ciktilar', () => stats());
   route('POST', '/api/ciktilar/open', () => {
     const dir = outputsDir(); fs.mkdirSync(dir, { recursive: true });
-    if (!process.env.VIDEOHUB_NO_WINDOW) spawn('explorer.exe', [dir], { detached: true, stdio: 'ignore' }).unref();
+    if (!process.env.VIDEOHUB_NO_WINDOW) openInFinder(dir);
     return { ok: true, dir };
   });
 }

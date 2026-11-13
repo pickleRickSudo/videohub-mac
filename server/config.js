@@ -13,7 +13,7 @@ const FILE = path.join(DATA_DIR, 'config.json');
 //   container : every sub-folder is a project (a "films" folder)
 //   project   : the folder itself is one project
 //   media     : finished videos lying around (an export folder)
-const SKIP = new Set(['node_modules', '.git', '.claude', 'VideoHub', '$RECYCLE.BIN']);
+const SKIP = new Set(['node_modules', '.git', '.claude', 'VideoHub', '$RECYCLE.BIN', 'Library', 'Applications', 'Movies', 'Music', 'Pictures']);
 
 // the workspace: the base folder for everything VideoHub creates by default. VIDEOHUB_BASE_DIR (tests and test hubs
 // point it at a scratch folder) → config.baseDir (chosen in setup) → Documents\VideoHub. Installs from before baseDir
@@ -44,7 +44,7 @@ export function discoverRoots() {
       const p = path.join(top, e.name), lp = lower(p);
       if (lp === lower(baseDir())) continue;
       // skip folders that are a root, sit inside one, or contain one
-      if (roots.some(r => lower(r.path) === lp || lp.startsWith(lower(r.path) + '\\') || lower(r.path).startsWith(lp + '\\'))) continue;
+      if (roots.some(r => lower(r.path) === lp || lp.startsWith(lower(r.path) + path.sep) || lower(r.path).startsWith(lp + path.sep))) continue;
       if (fs.existsSync(path.join(p, 'server', 'hub.js'))) continue;   // a VideoHub install
       if (hasRenderCode(p)) { add(p, 'project', false); continue; }
       let subs = []; try { subs = fs.readdirSync(p, { withFileTypes: true }).filter(s => s.isDirectory() && !SKIP.has(s.name)); } catch { }
@@ -79,7 +79,7 @@ export const DEFAULTS = (base = baseDir()) => ({
   tempMaxAgeDays: 14,
   bloatWarnRatio: 3,
   thumbstudio: defaultThumbstudioDirs(base),
-  // render.encoder: auto | nvenc | amf | qsv | x264, passed to render scripts as VIDEOHUB_ENCODER (server/encoders.js)
+  // render.encoder: auto | vt | x264 (nvenc | amf | qsv: Windows only, fall back to x264 here), passed to render scripts as VIDEOHUB_ENCODER (server/encoders.js)
   render: { encoder: 'auto' },
 });
 function firstRoots() {

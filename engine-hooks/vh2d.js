@@ -133,7 +133,7 @@ function drawItem(g, it, t, W, H) {
     if (img) g.drawImage(img, -w / 2, -h / 2, w, h);
   } else if (it.kind === 'text') {
     const size = +it.size || 72, lines = String(it.text ?? '').split('\n');
-    g.font = `${it.weight || 800} ${size}px ${it.font ? `"${it.font}", ` : ''}"Montserrat", "Segoe UI", sans-serif`;
+    g.font = `${it.weight || 800} ${size}px ${it.font ? `"${it.font}", ` : ''}"Montserrat", system-ui, "Segoe UI", sans-serif`;
     g.textAlign = it.align || 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.miterLimit = 2;
     const lh = size * 1.12, x = it.align === 'left' ? -w / 2 : it.align === 'right' ? w / 2 : 0;
     lines.forEach((ln, i) => {

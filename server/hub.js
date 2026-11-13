@@ -1,5 +1,6 @@
 // VideoHub server: http://127.0.0.1:7788  (UI + JSON API + server-sent events). Local only.
 import http from 'node:http';
+import { openInFinder, openAppWindow, availableMB } from './platform.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -51,16 +52,16 @@ onScan(ev => { if (ev.phase === 'done' || ev.type === 'project') invalidate(); b
 onScan(ev => { if (ev.phase === 'done') setTimeout(() => { findCandidates().catch(() => { }); }, 200); });
 // a finished full scan re-walks every project's code in the background (cards' live revision / thumbVersion)
 onScan(ev => { if (ev.phase === 'done' && ev.full) refreshSources(index().projects); });
-// a render ended: a Windows notification too (the open VideoHub window shows its own notice)
+// a render ended: a macOS notification too (the open VideoHub window shows its own notice)
 jobs.onJob(ev => { if (ev.type === 'done') outputsApi.notifyWindows(`Render finished: ${ev.job.projectName}${ev.job.version ? ' v' + ev.job.version : ''}`, ev.job.outputPath || ev.job.output || ''); else if (ev.type === 'failed') outputsApi.notifyWindows(`Render failed: ${ev.job.projectName}`, ev.job.error || ''); });
-// a custom command waits for a yes: a Windows notification, and an open VideoHub window jumps to the Renders page
+// a custom command waits for a yes: a macOS notification, and an open VideoHub window jumps to the Renders page
 jobs.onJob(ev => { if (ev.type === 'approval') { outputsApi.notifyWindows('A render command needs your approval', `${ev.job.projectName}: ${ev.job.cmd || ''}`); broadcast('navigate', { hash: '#/renders' }); } });
 jobs.onJob(ev => { broadcast('job', ev); if (ev.type === 'running' && !GUARD_OFF) ensureGuard().catch(() => { }); });   // a render always runs protected
 setInterval(() => { if (clients.size) broadcast('renders', rendersPayload(false)); }, 2000);
 
 function rendersPayload(withHistory = true) {
   const guard = guardState(), list = jobs.list();
-  // programs holding RAM: looked up (one PowerShell call, cached 30 s) only while a render runs or waits, or the page opens
+  // programs holding RAM: looked up (one ps call, cached 30 s) only while a render runs or waits, or the page opens
   const rendering = (guard.renders || []).length > 0 || list.some(j => j.state === 'running' || j.state === 'queued');
   return { guard, snipp: snippRenders(), jobs: list, hogs: rendering || withHistory ? ramHogs() : [], ...(withHistory ? { history: guardHistory() } : {}) };
 }
@@ -134,7 +135,7 @@ route('GET', '/api/find', async (req, url) => {
 route('GET', '/api/project/:id', async (req, url, { id }) => {
   const p = project(id); if (!p) throw Object.assign(new Error('Project not found'), { code: 404 });
   const name = p.name.toLowerCase();
-  const history = guardHistory(1000).filter(h => h.project && (h.project.toLowerCase().endsWith('\\' + name) || h.project.toLowerCase() === name)).slice(0, 60);
+  const history = guardHistory(1000).filter(h => h.project && (h.project.toLowerCase().endsWith(path.sep + name) || h.project.toLowerCase() === name)).slice(0, 60);
   // the review page does not need the cleanup list (lite=1); the project page waits at most 1.5 s for it
   const cand = url.searchParams.get('lite') ? null : await Promise.race([findCandidates().catch(() => []), new Promise(r => setTimeout(() => r(null), 1500))]);
   return { ...p, label: shortPath(p.path), cleanup: (cand || []).filter(c => c.project === id), cleanupPending: !cand && !url.searchParams.get('lite'), busy: busyProjects().find(b => b.project === id)?.reason || null, notes: notesApi.list(p), versionsLog: notesApi.versions(p), history };
@@ -232,7 +233,7 @@ route('POST', '/api/open', async (req) => {
   if (typeof p !== 'string' || !p || !allowedFile(p)) throw Object.assign(new Error('not allowed'), { code: 403 });
   return openFile(p, how || 'file');
 });
-// "Open folder": the project folder in Explorer, or (file) the folder of one of its videos with that file selected.
+// "Open folder": the project folder in Finder, or (file) the folder of one of its videos with that file selected.
 // Only folders inside a configured root (or the archive); test hubs (VIDEOHUB_NO_WINDOW) answer without opening.
 route('POST', '/api/project/:id/open-folder', async (req, url, { id }) => {
   const p = project(id); if (!p) throw Object.assign(new Error('Project not found'), { code: 404 });
@@ -241,8 +242,7 @@ route('POST', '/api/project/:id/open-folder', async (req, url, { id }) => {
   if (b.file && !o) throw Object.assign(new Error('This project has no such video'), { code: 404 });
   const target = o ? o.path : (p.groupFiles ? path.dirname(p.outputs[0]?.path || p.path) : p.path);
   if (!allowedFile(target) || !fs.existsSync(target)) throw Object.assign(new Error('This folder cannot be opened (outside VideoHub\'s folders, or missing)'), { code: 403 });
-  const args = o ? `/select,"${target}"` : `"${target}"`;
-  if (!process.env.VIDEOHUB_NO_WINDOW) spawn('explorer.exe', [args], { detached: true, stdio: 'ignore', windowsVerbatimArguments: true }).unref();
+  if (!process.env.VIDEOHUB_NO_WINDOW) openInFinder(target, !!o);   // Finder; a video is shown selected
   return { ok: true, path: target, select: !!o };
 });
 // ---------- removing a project from the Projects page
@@ -260,7 +260,7 @@ route('POST', '/api/hidden/restore', async (req) => {
   saveConfig({ hiddenProjects: (config().hiddenProjects || []).filter(h => h.key !== key) });
   scan().catch(() => { }); return { ok: true };
 });
-// "Delete folder": the project's folder (a 3D scene: also its out\<scene>; loose files: just those files) to the Recycle Bin.
+// "Delete folder": the project's folder (a 3D scene: also its out\<scene>; loose files: just those files) to the Trash.
 // Never a configured root itself or anything outside one, never while it renders or is queued.
 route('POST', '/api/project/:id/delete-folder', async (req, url, { id }) => {
   const p = project(id); if (!p) throw Object.assign(new Error('Project not found'), { code: 404 });
@@ -296,7 +296,7 @@ route('POST', '/api/disk/clean', async (req) => { const { ids } = await readBody
 // slow-save reports from the review player (data\perf.jsonl, last ~500 lines kept) with free RAM and renders at that moment
 route('POST', '/api/perf', async (req) => {
   const b = await readBody(req), f = path.join(HUB_DIR, 'data', 'perf.jsonl'), g = guardState();
-  const line = JSON.stringify({ at: new Date().toISOString(), ...b, freeRamMB: Math.round(os.freemem() / 1048576), renders: (g.renders || []).length, jobs: jobs.busy() }) + '\n';
+  const line = JSON.stringify({ at: new Date().toISOString(), ...b, freeRamMB: availableMB(), renders: (g.renders || []).length, jobs: jobs.busy() }) + '\n';
   try { const old = fs.existsSync(f) ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).slice(-499).join('\n') + '\n' : ''; fs.writeFileSync(f, old + line); } catch { }
   return { ok: true };
 });
@@ -338,9 +338,7 @@ route('POST', '/api/show', async (req) => {
   if (process.env.VIDEOHUB_GUARD !== 'off') ensureGuard().catch(() => { });
   if (clients.size) { broadcast('navigate', { hash }); return { ok: true, how: 'window' }; }
   if (process.env.VIDEOHUB_NO_WINDOW) return { ok: true, how: 'none' };
-  const url = `http://127.0.0.1:${port}/${hash}`, exe = TOOLS.edge || TOOLS.chrome;
-  if (exe) spawn(exe, ['--app=' + url], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
-  else spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  openAppWindow(`http://127.0.0.1:${port}/${hash}`);
   return { ok: true, how: 'opened' };
 });
 
@@ -392,7 +390,7 @@ checkGuardTemp(); setInterval(checkGuardTemp, 60e3).unref();
 
 // ---------- run only while used: no VideoHub window, no render, no queued work for 2 min → RenderGuard and the hub close.
 // Claude's hub_* tools start the hub again when needed; a render job starts RenderGuard again.
-// "Start with Windows" on = the user wants them always running, so nothing closes.
+// "Start at log-in" on = the user wants them always running, so nothing closes.
 const IDLE_MS = (+process.env.VIDEOHUB_IDLE_SEC || 120) * 1000;
 const GUARD_OFF = process.env.VIDEOHUB_GUARD === 'off';   // test instances: never start or stop the real RenderGuard
 let lastUse = Date.now(), startupCache = { at: 0, on: false };
@@ -408,7 +406,7 @@ setInterval(async () => {
   if (!GUARD_OFF) await quitGuard().catch(() => { });
   process.exit(0);
 }, 20e3).unref();
-// "Start with Windows" (open.vbs --server at log-in): the hub stays on, so the render protection runs from the start
+// "Start at log-in" (the LaunchAgent runs hub.js at log-in): the hub stays on, so the render protection runs from the start
 if (!GUARD_OFF) alwaysOn().then(on => { if (on) ensureGuard().catch(() => { }); }).catch(() => { });
 
 // only this PC's own pages and tools: a page on another website (or a DNS name pointed at 127.0.0.1) must not drive
