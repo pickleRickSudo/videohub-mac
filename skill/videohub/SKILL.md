@@ -22,6 +22,7 @@ frames, draws on them and leaves notes, and where renders are queued one at a ti
 | `hub_job({id, wait:true})` | Wait for / check a render. |
 | `hub_register_version({file, changedRanges?, note?})` | Register a video made outside the queue. |
 | `hub_cleanup()` | What can be cleaned up (the user approves it in VideoHub; never delete yourself). |
+| `hub_takes({status?, id?, update?, convert?})` | Voice booth: lines the user recorded (their performance + direction) and the Seed-VC conversions into the character's voice. Use a take only when the user asks; put the converted WAV into the pipeline, then `update:{status:"used", reply}`. |
 | `hub_thumbs` / `hub_thumb_brief` / `hub_thumb_variant` | Thumbnails (see below). |
 
 **Without the MCP tools** (the server is not loaded in this session) the same tools run from the command line:

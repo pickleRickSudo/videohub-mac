@@ -30,6 +30,7 @@ import { openFile } from './open-file.js';
 import { transcript } from './transcript.js';
 import { ramHogs } from './ramhogs.js';
 import * as thumbstudio from './thumbstudio/store.js';
+import * as booth from './booth.js';
 
 const UI = path.join(HUB_DIR, 'ui');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime', '.json': 'application/json', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.aac': 'audio/aac', '.flac': 'audio/flac' };
@@ -323,6 +324,10 @@ media.routes(route, allowedFile);
 media.onProxy(ev => broadcast('proxy', ev));
 notesApi.onNote(ev => broadcast('note', ev));
 thumbstudio.onStore(ev => broadcast('thumbstudio', ev));
+booth.routes(route, readBody);
+booth.onBooth(ev => broadcast('booth', ev));
+// a take or a character voice for the Voice booth page (its own takes and the cast folder's audio only)
+route('GET', '/api/booth/file', (req, url, _, res) => { const f = url.searchParams.get('p') || ''; if (!path.isAbsolute(f) || !booth.boothFile(f)) return send(res, 403, { error: 'not allowed' }); serveFile(req, res, f); });
 setTimeout(() => { try { notesApi.resumePending(index().projects); } catch (e) { console.error('[notes] resume:', e.message); } }, 8000);
 
 // the narration's text with timings (timeline row, captions)
@@ -400,7 +405,7 @@ async function alwaysOn() {
 }
 setInterval(async () => {
   const g = guardState();
-  if (clients.size || jobs.busy() || cleanStatus()?.state === 'running' || notesApi.busyPictures() || media.makingCopies() || index().scanning || (!GUARD_OFF && g.running && (g.renders || []).length)) { lastUse = Date.now(); return; }
+  if (clients.size || jobs.busy() || booth.busy() || cleanStatus()?.state === 'running' || notesApi.busyPictures() || media.makingCopies() || index().scanning || (!GUARD_OFF && g.running && (g.renders || []).length)) { lastUse = Date.now(); return; }
   if (Date.now() - lastUse < IDLE_MS || await alwaysOn()) return;
   console.log('VideoHub: not in use, closing together with the render protection.');
   if (!GUARD_OFF) await quitGuard().catch(() => { });

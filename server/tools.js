@@ -153,6 +153,42 @@ export const TOOLS = {
     run: async a => { const p = await resolve(a.project); const n = await call('POST', `/api/project/${p.id}/note/${a.id}`, { status: a.status ? noteStatus(a.status) : undefined, reply: a.reply, by: 'claude' }); return `#${n.id} → ${n.status}${n.reply ? ' · ' + n.reply : ''}`; },
   },
 
+  hub_takes: {
+    description: 'Voice booth takes: lines the user performed and recorded in VideoHub (Voice booth page), each with the line, their direction (stress, mood, connotation), the recorded WAV, the line\'s current generated voice, and the Seed-VC conversions into the character\'s voice. Default: new takes, marked "claude" (taken). "USER PICKED" = the version the user chose with the radio buttons (one per line): use that one. To use one, put the converted WAV in the pipeline (e.g. episode <lang>/voices/<lid>_<char>.wav, keep the old file as a backup) and continue there; then mark it "used" with a reply. `convert` queues another attempt: method "match" (default: OmniVoice takes in the locked voice, best fit to the user\'s delivery; n takes) or "seedvc" (other character, steps, or your own target reference wav).',
+    schema: {
+      status: z.enum(['new', 'claude', 'used', 'rejected', 'all']).optional().describe('new (default) | claude | used | rejected | all'),
+      id: z.string().optional().describe('One take (any status)'),
+      char: z.string().optional(), ep: z.string().optional(),
+      take: z.boolean().optional().describe('Mark returned new takes "claude" (default true)'),
+      update: z.object({ status: z.enum(['new', 'claude', 'used', 'rejected']).optional(), reply: z.string().optional() }).optional().describe('With id: save status / a short reply the user sees'),
+      convert: z.object({ method: z.enum(['match', 'seedvc']).optional(), char: z.string().optional(), n: z.number().optional().describe('match: takes to try (24)'), steps: z.number().optional(), target: z.string().optional().describe('seedvc: absolute path of a reference wav') }).optional().describe('With id: queue another attempt (match ~1 min, seedvc ~25 s)'),
+    },
+    run: async a => {
+      if (a.id && a.update) { const t = await call('POST', `/api/booth/take/${a.id}`, a.update); return `${t.id} → ${t.status}${t.reply ? ' · ' + t.reply : ''}`; }
+      if (a.id && a.convert) { const c = await call('POST', `/api/booth/take/${a.id}/convert`, a.convert); return `Queued: ${a.id} → ${c.char} ${c.method}${c.method === 'match' ? ` (${c.n} takes)` : ` (${c.steps} steps, target ${c.target})`}. Call hub_takes({id}) in ~1 min for the file.`; }
+      const b = await call('GET', '/api/booth');
+      const st = a.status || (a.id ? 'all' : 'new');
+      const ts = b.takes.filter(t => (!a.id || t.id === a.id) && (st === 'all' || t.status === st) && (!a.char || t.char === a.char) && (!a.ep || t.ep === a.ep));
+      if (!ts.length) return `No ${st === 'all' ? '' : st + ' '}takes${a.id ? ' with id ' + a.id : ''}. Takes folder: ${b.dir}`;
+      if (a.take !== false) for (const t of ts) if (t.status === 'new') await call('POST', `/api/booth/take/${t.id}`, { status: 'claude' });
+      const out = [`${ts.length} take${ts.length === 1 ? '' : 's'} (cast folder ${b.cast}):`];
+      for (const t of ts) {
+        out.push(`${t.id} [${t.status}] ${t.ep ? `${t.ep} ${t.lang} line ${t.lid}` : `free take (${t.lang})`} · ${t.char} · ${t.dur}s · ${t.at}`);
+        if (t.chosen) out.push(`   ✓ USER PICKED: ${t.chosen.kind} → ${t.chosen.file}`);
+        if (t.text) out.push(`   line: «${t.text}»`);
+        if (t.note) out.push(`   direction: ${t.note}`);
+        out.push(`   user's performance: ${t.file}`);
+        if (t.original) out.push(`   current generated voice: ${t.original}`);
+        for (const c of t.conversions) out.push((c.method || 'seedvc') === 'match'
+          ? `   → ${c.char} MATCH (best of ${c.n} OmniVoice takes in the locked voice): ${c.state === 'done' ? `re-timed to the user: ${c.file} | untouched best take: ${c.pick} | scores ${JSON.stringify(c.best)} (report ${c.report})` : c.state + (c.error ? ': ' + c.error : '')}`
+          : `   → ${c.char} Seed-VC (${c.steps} steps): ${c.state === 'done' ? c.file : c.state + (c.error ? ': ' + c.error : '')}`);
+        if (t.reply) out.push(`   your previous reply: ${t.reply}`);
+      }
+      out.push('', 'MATCH = the character\'s own OmniVoice voice, picked to fit the user\'s delivery (re-timed copy follows their rhythm; the untouched take is the cleaner one). Seed-VC = the user\'s own recording in the character\'s timbre (keeps their accent). If the line must match the film\'s timing, compare durations with the current voice.');
+      return out.join('\n');
+    },
+  },
+
   hub_render: {
     description: 'Put a render in VideoHub\'s queue (one render at a time on this computer; CPU/RAM protection on when the agent is installed). Only when the user asked for a render. mode "partial": only the chunks the notes/seconds/chunks touch are rendered again, the film is joined, the previous final\'s sound is put back, and a new version (…_vN.mp4) is saved with the changed ranges. "full": the whole film. "preview": PREVIEW=1 (projects that support it). "command": your own command (cmd) + output file; the user has to approve it in VideoHub before it runs. wait=true waits until it ends (at most ~9 min). Options: workers (parallel workers / Chrome copies for 3D), env.FPS (if the script reads FPS, full only), env.CODEC (3D: auto|vt|x264); what a project supports: GET /api/project/<id>/render-options.',
     schema: {

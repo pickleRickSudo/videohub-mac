@@ -3,6 +3,7 @@ import { reviewPage } from './review.js';
 import { outputsPanel, outputActions } from './outputs-panel.js';
 import { activeRenders, elapsedSeconds, timeText, remainingText } from './render-status.js';
 import { thumbnailStudioPage } from './thumbstudio/page.js';
+import { boothPage } from './booth.js';
 import { NOTE_STATUS_LABEL, NOTE_KIND_LABEL, PROJECT_STATUS_LABEL, THUMB_STATUS_LABEL } from './values.js';
 
 // ---------- tiny helpers
@@ -60,7 +61,7 @@ es.addEventListener('open', () => { clearTimeout(downTimer); downTimer = null; i
 // no pop-up messages for things the user did not just do: lists and badges update silently
 let userScan = false, uiVersion = null, reloadPending = false;
 export const markUserScan = () => { userScan = true; };
-const busyWriting = () => !!document.querySelector('.composer, .rv2-composer, .rv2-drafts:not([hidden]), .nc textarea, .textin:not([hidden])');
+const busyWriting = () => !!document.querySelector('.composer, .rv2-composer, .rv2-drafts:not([hidden]), .nc textarea, .textin:not([hidden]), .booth-rec, .bth-note:focus');
 function reloadWhenIdle() {
   if (busyWriting()) { reloadPending = true; return; }   // never lose a note being written
   location.reload();
@@ -132,7 +133,7 @@ function updateLive() {
 }
 
 // ---------- router
-const pages = { outputs: outputsPage, projects: projectsPage, p: projectPage, review: reviewPage, renders: rendersPage, disk: diskPage, settings: settingsPage, thumbstudio: thumbnailStudioPage };
+const pages = { outputs: outputsPage, projects: projectsPage, p: projectPage, review: reviewPage, renders: rendersPage, disk: diskPage, settings: settingsPage, thumbstudio: thumbnailStudioPage, booth: boothPage };
 let cleanup = null;
 async function render() {
   const [name = 'projects', ...args] = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
